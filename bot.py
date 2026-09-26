@@ -1,11 +1,10 @@
-
-import sqlite3
 import random
 import time
 import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+import psycopg2
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -24,7 +23,7 @@ COOLDOWN_SECONDS = 10
 MIN_POINTS = 10
 MAX_POINTS = 30
 
-DB_NAME = "nazi_bot.db"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 # =========================
@@ -51,14 +50,14 @@ def run_server():
 # دیتابیس
 # =========================
 
-conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+conn = psycopg2.connect(DATABASE_URL, sslmode="require")
 cursor = conn.cursor()
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
-    user_id INTEGER PRIMARY KEY,
+    user_id BIGINT PRIMARY KEY,
     points INTEGER DEFAULT 0,
-    last_nazi REAL DEFAULT 0
+    last_nazi DOUBLE PRECISION DEFAULT 0
 )
 """)
 
@@ -67,14 +66,14 @@ conn.commit()
 
 def get_user(user_id):
     cursor.execute(
-        "SELECT points, last_nazi FROM users WHERE user_id = ?",
+        "SELECT points, last_nazi FROM users WHERE user_id = %s",
         (user_id,)
     )
     user = cursor.fetchone()
 
     if user is None:
         cursor.execute(
-            "INSERT INTO users (user_id, points, last_nazi) VALUES (?, ?, ?)",
+            "INSERT INTO users (user_id, points, last_nazi) VALUES (%s, %s, %s)",
             (user_id, 0, 0)
         )
         conn.commit()
@@ -85,7 +84,7 @@ def get_user(user_id):
 
 def update_points(user_id, points):
     cursor.execute(
-        "UPDATE users SET points = ? WHERE user_id = ?",
+        "UPDATE users SET points = %s WHERE user_id = %s",
         (points, user_id)
     )
     conn.commit()
@@ -108,17 +107,9 @@ async def handle_message(
 
     points, last_nazi = get_user(user_id)
 
-    # -------------------------
-    # دیدن پوینت
-    # -------------------------
-
     if text == "پوینت":
         await update.message.reply_text(f"🪙 پوینت شما: {points}")
         return
-
-    # -------------------------
-    # قمار
-    # -------------------------
 
     if text.startswith("قمار"):
         parts = text.split()
@@ -159,10 +150,6 @@ async def handle_message(
             )
         return
 
-    # -------------------------
-    # سیستم نازی
-    # -------------------------
-
     if "نازی" in text:
         now = time.time()
         elapsed = now - last_nazi
@@ -178,7 +165,7 @@ async def handle_message(
         new_points = points + earned
 
         cursor.execute(
-            "UPDATE users SET points = ?, last_nazi = ? WHERE user_id = ?",
+            "UPDATE users SET points = %s, last_nazi = %s WHERE user_id = %s",
             (new_points, now, user_id)
         )
         conn.commit()
