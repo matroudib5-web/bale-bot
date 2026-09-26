@@ -1,3 +1,4 @@
+
 import sqlite3
 import random
 import time
@@ -69,7 +70,6 @@ def get_user(user_id):
         "SELECT points, last_nazi FROM users WHERE user_id = ?",
         (user_id,)
     )
-
     user = cursor.fetchone()
 
     if user is None:
@@ -113,9 +113,7 @@ async def handle_message(
     # -------------------------
 
     if text == "پوینت":
-        await update.message.reply_text(
-            f"🪙 پوینت شما: {points}"
-        )
+        await update.message.reply_text(f"🪙 پوینت شما: {points}")
         return
 
     # -------------------------
@@ -123,56 +121,42 @@ async def handle_message(
     # -------------------------
 
     if text.startswith("قمار"):
-
         parts = text.split()
 
         if len(parts) != 2:
-            await update.message.reply_text(
-                "❌ فرمت درست: قمار 100"
-            )
+            await update.message.reply_text("❌ فرمت درست: قمار 100")
             return
 
         try:
             amount = int(parts[1])
         except:
-            await update.message.reply_text(
-                "❌ مقدار باید عدد باشه!"
-            )
+            await update.message.reply_text("❌ مقدار باید عدد باشه!")
             return
 
         if amount <= 0:
-            await update.message.reply_text(
-                "❌ مقدار باید بیشتر از ۰ باشه!"
-            )
+            await update.message.reply_text("❌ مقدار باید بیشتر از ۰ باشه!")
             return
 
         if amount > points:
             await update.message.reply_text(
-                f"❌ پوینت کافی نداری!\n"
-                f"💰 موجودی: {points}"
+                f"❌ پوینت کافی نداری!\n💰 موجودی: {points}"
             )
             return
 
-        # شانس ۵۰٪
         win = random.choice([True, False])
 
         if win:
             new_points = points + amount
             update_points(user_id, new_points)
             await update.message.reply_text(
-                f"🎉 بردی!\n"
-                f"🪙 +{amount} پوینت\n"
-                f"💰 موجودی: {new_points}"
+                f"🎉 بردی!\n🪙 +{amount} پوینت\n💰 موجودی: {new_points}"
             )
         else:
             new_points = points - amount
             update_points(user_id, new_points)
             await update.message.reply_text(
-                f"💔 باختی!\n"
-                f"🪙 -{amount} پوینت\n"
-                f"💰 موجودی: {new_points}"
+                f"💔 باختی!\n🪙 -{amount} پوینت\n💰 موجودی: {new_points}"
             )
-
         return
 
     # -------------------------
@@ -180,20 +164,19 @@ async def handle_message(
     # -------------------------
 
     if "نازی" in text:
-
         now = time.time()
         elapsed = now - last_nazi
 
         if elapsed < COOLDOWN_SECONDS:
             remaining = int(COOLDOWN_SECONDS - elapsed) + 1
             await update.message.reply_text(
-                f"⏱️ هنوز زوده!\n"
-                f"{remaining} ثانیه دیگه دوباره امتحان کن."
+                f"⏱️ هنوز زوده!\n{remaining} ثانیه دیگه دوباره امتحان کن."
             )
             return
 
         earned = random.randint(MIN_POINTS, MAX_POINTS)
         new_points = points + earned
+
         cursor.execute(
             "UPDATE users SET points = ?, last_nazi = ? WHERE user_id = ?",
             (new_points, now, user_id)
@@ -201,10 +184,8 @@ async def handle_message(
         conn.commit()
 
         await update.message.reply_text(
-            f"🪙 +{earned} پوینت!\n"
-            f"💰 موجودی: {new_points}"
+            f"🪙 +{earned} پوینت!\n💰 موجودی: {new_points}"
         )
-
         return
 
 
@@ -213,7 +194,6 @@ async def handle_message(
 # =========================
 
 def main():
-
     threading.Thread(target=run_server, daemon=True).start()
 
     app = (
@@ -231,7 +211,6 @@ def main():
     )
 
     print("Bot started...")
-
     app.run_polling()
 
 
