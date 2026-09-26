@@ -37,7 +37,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is running!")
 
     def log_message(self, format, *args):
-        pass  # لاگ‌های اضافی رو نشون نده
+        pass
 
 
 def run_server():
@@ -64,10 +64,6 @@ CREATE TABLE IF NOT EXISTS users (
 conn.commit()
 
 
-# =========================
-# گرفتن / ساخت کاربر
-# =========================
-
 def get_user(user_id):
     cursor.execute(
         "SELECT points, last_nazi FROM users WHERE user_id = ?",
@@ -82,10 +78,17 @@ def get_user(user_id):
             (user_id, 0, 0)
         )
         conn.commit()
-
         return 0, 0
 
     return user
+
+
+def update_points(user_id, points):
+    cursor.execute(
+        "UPDATE users SET points = ? WHERE user_id = ?",
+        (points, user_id)
+    )
+    conn.commit()
 
 
 # =========================
@@ -116,6 +119,63 @@ async def handle_message(
         return
 
     # -------------------------
+    # قمار
+    # -------------------------
+
+    if text.startswith("قمار"):
+
+        parts = text.split()
+
+        if len(parts) != 2:
+            await update.message.reply_text(
+                "❌ فرمت درست: قمار 100"
+            )
+            return
+
+        try:
+            amount = int(parts[1])
+        except:
+            await update.message.reply_text(
+                "❌ مقدار باید عدد باشه!"
+            )
+            return
+
+        if amount <= 0:
+            await update.message.reply_text(
+                "❌ مقدار باید بیشتر از ۰ باشه!"
+            )
+            return
+
+        if amount > points:
+            await update.message.reply_text(
+                f"❌ پوینت کافی نداری!\n"
+                f"💰 موجودی: {points}"
+            )
+            return
+
+        # شانس ۵۰٪
+        win = random.choice([True, False])
+
+        if win:
+            new_points = points + amount
+            update_points(user_id, new_points)
+            await update.message.reply_text(
+                f"🎉 بردی!\n"
+                f"🪙 +{amount} پوینت\n"
+                f"💰 موجودی: {new_points}"
+            )
+        else:
+            new_points = points - amount
+            update_points(user_id, new_points)
+            await update.message.reply_text(
+                f"💔 باختی!\n"
+                f"🪙 -{amount} پوینت\n"
+                f"💰 موجودی: {new_points}"
+            )
+
+        return
+
+    # -------------------------
     # سیستم نازی
     # -------------------------
 
@@ -125,36 +185,19 @@ async def handle_message(
         elapsed = now - last_nazi
 
         if elapsed < COOLDOWN_SECONDS:
-
             remaining = int(COOLDOWN_SECONDS - elapsed) + 1
-
             await update.message.reply_text(
                 f"⏱️ هنوز زوده!\n"
                 f"{remaining} ثانیه دیگه دوباره امتحان کن."
             )
-
             return
 
-        earned = random.randint(
-            MIN_POINTS,
-            MAX_POINTS
-        )
-
+        earned = random.randint(MIN_POINTS, MAX_POINTS)
         new_points = points + earned
-
         cursor.execute(
-            """
-            UPDATE users
-            SET points = ?, last_nazi = ?
-            WHERE user_id = ?
-            """,
-            (
-                new_points,
-                now,
-                user_id
-            )
+            "UPDATE users SET points = ?, last_nazi = ? WHERE user_id = ?",
+            (new_points, now, user_id)
         )
-
         conn.commit()
 
         await update.message.reply_text(
@@ -171,7 +214,6 @@ async def handle_message(
 
 def main():
 
-    # وب‌سرور رو توی یه ترد جدا اجرا کن
     threading.Thread(target=run_server, daemon=True).start()
 
     app = (
