@@ -170,7 +170,7 @@ async def handle_message(
         )
         conn.commit()
 
-        await update.message.reply_text(
+        await update.message.reply_text(زنده باد هیتلر🙋‍♂️ 
             f"🪙 +{earned} پوینت!\n💰 موجودی: {new_points}"
         )
         return
