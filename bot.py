@@ -60,14 +60,17 @@ CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT PRIMARY KEY,
     points INTEGER DEFAULT 0,
     last_nazi DOUBLE PRECISION DEFAULT 0,
-    last_gamble DOUBLE PRECISION DEFAULT 0
+    last_gamble DOUBLE PRECISION DEFAULT 0,
+    username TEXT DEFAULT ''
 )
 """)
 
-# اضافه کردن ستون last_gamble اگه جدول قبلاً ساخته شده بود
 try:
     cursor.execute(
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_gamble DOUBLE PRECISION DEFAULT 0"
+    )
+    cursor.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT DEFAULT ''"
     )
 except Exception as e:
     print("Alter table error:", e)
@@ -126,8 +129,62 @@ async def handle_message(
     text = update.message.text.strip()
     user_id = update.message.from_user.id
 
+    # ذخیره‌ی یوزرنیم
+    try:
+        uname = update.message.from_user.username or update.message.from_user.first_name or ""
+        cursor.execute(
+            "UPDATE users SET username = %s WHERE user_id = %s",
+            (uname, user_id)
+        )
+    except Exception as e:
+        print("username error:", e)
+
     points, last_nazi, last_gamble = get_user(user_id)
 
+    # -------------------------
+    # راهنما
+    # -------------------------
+    if text == "راهنما":
+        await update.message.reply_text(
+            "📖 راهنمای ربات:\n\n"
+            "🔹 نازی → دریافت پوینت (هر ۲ دقیقه)\n"
+            "🔹 پوینت → مشاهده موجودی\n"
+            "🔹 قمار [مقدار] → شرط‌بندی (هر ۱ دقیقه)\n"
+            "🔹 رنکینگ → برترین‌های حزب\n"
+            "🔹 انتقال [مقدار] → با ریپلای، پوینت به کاربر بفرست\n"
+            "🔹 راهنما → همین پیام\n\n"
+            "🛠 پشتیبانی: @KM12502\n\n"
+            "زنده باد پیشوای بزرگ هیتلر🙋🫡"
+        )
+        return
+
+    # -------------------------
+    # رنکینگ
+    # -------------------------
+    if text == "رنکینگ":
+        try:
+            cursor.execute(
+                "SELECT username, points FROM users ORDER BY points DESC LIMIT 10"
+            )
+            top_users = cursor.fetchall()
+
+            if not top_users:
+                await update.message.reply_text("هنوز هیچ کاربری پوینت نداره!")
+                return
+
+            result = "🏆 برترین‌های حزب:\n\n"
+            for i, (uname, pts) in enumerate(top_users, 1):
+                name = uname if uname else "بی‌نام"
+                result += f"{i}. {name} — {pts} نازی پوینت\n"
+
+            await update.message.reply_text(result)
+        except Exception as e:
+            print("ranking error:", e)
+        return
+
+    # -------------------------
+    # مشاهده پوینت
+    # -------------------------
     if text == "پوینت":
         await update.message.reply_text(
             f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
@@ -135,6 +192,60 @@ async def handle_message(
         )
         return
 
+    # -------------------------
+    # انتقال پوینت
+    # -------------------------
+    if text.startswith("انتقال"):
+        if not update.message.reply_to_message:
+            await update.message.reply_text(
+                "❌ برای انتقال، روی پیام کاربر ریپلای کن و بنویس:\n"
+                "انتقال 100"
+            )
+            return
+
+        target_user = update.message.reply_to_message.from_user
+        target_id = target_user.id
+
+        if target_id == user_id:
+            await update.message.reply_text("❌ نمی‌تونی به خودت پوینت بدی!")
+            return
+
+        parts = text.split()
+        if len(parts) != 2:
+            await update.message.reply_text("❌ فرمت درست: انتقال 100")
+            return
+
+        try:
+            amount = int(parts[1])
+        except:
+            await update.message.reply_text("❌ مقدار باید عدد باشه!")
+            return
+
+        if amount <= 0:
+            await update.message.reply_text("❌ مقدار باید بیشتر از ۰ باشه!")
+            return
+
+        if amount > points:
+            await update.message.reply_text(
+                f"❌ پوینت کافی نداری!\n"
+                f"نازی پوینت هات: {points}"
+            )
+            return
+
+        target_points, _, _ = get_user(target_id)
+
+        update_points(user_id, points - amount)
+        update_points(target_id, target_points + amount)
+
+        await update.message.reply_text(
+            f"✅ {amount} نازی پوینت به {target_user.first_name} انتقال یافت.\n"
+            f"نازی پوینت هات: {points - amount}"
+        )
+        return
+
+    # -------------------------
+    # قمار
+    # -------------------------
     if text.startswith("قمار"):
         parts = text.split()
 
@@ -205,6 +316,9 @@ async def handle_message(
             )
         return
 
+    # -------------------------
+    # نازی
+    # -------------------------
     if "نازی" in text:
         now = time.time()
         elapsed = now - last_nazi
