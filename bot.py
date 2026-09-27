@@ -129,21 +129,18 @@ async def handle_message(
     text = update.message.text.strip()
     user_id = update.message.from_user.id
 
-    # ذخیره‌ی یوزرنیم
     try:
-        uname = update.message.from_user.username or update.message.from_user.first_name or ""
-        cursor.execute(
-            "UPDATE users SET username = %s WHERE user_id = %s",
-            (uname, user_id)
-        )
+        uname = update.message.from_user.username
+        if uname:
+            cursor.execute(
+                "UPDATE users SET username = %s WHERE user_id = %s",
+                (uname, user_id)
+            )
     except Exception as e:
         print("username error:", e)
 
     points, last_nazi, last_gamble = get_user(user_id)
 
-    # -------------------------
-    # راهنما
-    # -------------------------
     if text == "راهنما":
         await update.message.reply_text(
             "📖 راهنمای ربات:\n\n"
@@ -158,9 +155,6 @@ async def handle_message(
         )
         return
 
-    # -------------------------
-    # رنکینگ
-    # -------------------------
     if text == "رنکینگ":
         try:
             cursor.execute(
@@ -174,7 +168,10 @@ async def handle_message(
 
             result = "🏆 برترین‌های حزب:\n\n"
             for i, (uname, pts) in enumerate(top_users, 1):
-                name = uname if uname else "بی‌نام"
+                if uname:
+                    name = f"@{uname}"
+                else:
+                    name = "بی‌نام"
                 result += f"{i}. {name} — {pts} نازی پوینت\n"
 
             await update.message.reply_text(result)
@@ -182,9 +179,6 @@ async def handle_message(
             print("ranking error:", e)
         return
 
-    # -------------------------
-    # مشاهده پوینت
-    # -------------------------
     if text == "پوینت":
         await update.message.reply_text(
             f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
@@ -192,9 +186,6 @@ async def handle_message(
         )
         return
 
-    # -------------------------
-    # انتقال پوینت
-    # -------------------------
     if text.startswith("انتقال"):
         if not update.message.reply_to_message:
             await update.message.reply_text(
@@ -243,9 +234,6 @@ async def handle_message(
         )
         return
 
-    # -------------------------
-    # قمار
-    # -------------------------
     if text.startswith("قمار"):
         parts = text.split()
 
@@ -316,9 +304,6 @@ async def handle_message(
             )
         return
 
-    # -------------------------
-    # نازی
-    # -------------------------
     if "نازی" in text:
         now = time.time()
         elapsed = now - last_nazi
