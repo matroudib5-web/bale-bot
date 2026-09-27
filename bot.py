@@ -108,7 +108,9 @@ async def handle_message(
     points, last_nazi = get_user(user_id)
 
     if text == "پوینت":
-        await update.message.reply_text(f"🪙 پوینت شما: {points}")
+        await update.message.reply_text(
+            f"🥳 نازی پوینت‌هات: {points} (پولداریا 😂)"
+        )
         return
 
     if text.startswith("قمار"):
@@ -130,7 +132,8 @@ async def handle_message(
 
         if amount > points:
             await update.message.reply_text(
-                f"❌ پوینت کافی نداری!\n💰 موجودی: {points}"
+                f"❌ پوینت کافی نداری!\n"
+                f"🥳 نازی پوینت‌هات: {points}"
             )
             return
 
@@ -140,13 +143,17 @@ async def handle_message(
             new_points = points + amount
             update_points(user_id, new_points)
             await update.message.reply_text(
-                f"🎉 بردی!\n🪙 +{amount} پوینت\n💰 موجودی: {new_points}"
+                f"🎉 بردی!\n"
+                f"🪙 +{amount} نازی پوینت\n"
+                f"🥳 نازی پوینت‌هات: {new_points} (پولداریا 😂)"
             )
         else:
             new_points = points - amount
             update_points(user_id, new_points)
             await update.message.reply_text(
-                f"💔 باختی!\n🪙 -{amount} پوینت\n💰 موجودی: {new_points}"
+                f"💔 باختی!\n"
+                f"🪙 -{amount} نازی پوینت\n"
+                f"🥳 نازی پوینت‌هات: {new_points} (پولداریا 😂)"
             )
         return
 
@@ -157,7 +164,8 @@ async def handle_message(
         if elapsed < COOLDOWN_SECONDS:
             remaining = int(COOLDOWN_SECONDS - elapsed) + 1
             await update.message.reply_text(
-                f"⏱️ هنوز زوده!\n{remaining} ثانیه دیگه دوباره امتحان کن."
+                f"⏱️ هنوز زوده!\n"
+                f"{remaining} ثانیه دیگه دوباره امتحان کن."
             )
             return
 
@@ -171,7 +179,9 @@ async def handle_message(
         conn.commit()
 
         await update.message.reply_text(
-            f"🪙 +{earned} پوینت!\n💰 موجودی: {new_points}"
+            f"زنده باد هیتلر🙋🫡" 
+            f"🎉 {earned} نازی پوینت گرفتی!\n"
+            f"🥳 نازی پوینت‌هات: {new_points} (پولداریا 😂)"
         )
         return
 
