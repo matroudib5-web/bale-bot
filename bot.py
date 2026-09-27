@@ -174,7 +174,7 @@ async def handle_message(
             remaining = int(COOLDOWN_SECONDS - elapsed) + 1
             await update.message.reply_text(
                 f"پیشوا مشغول امور کشور، مردم، جنگ، حزب و... است.\n"
-                f"⏱️ {format_time(remaining)} دیگه امتحان کن."
+                f"⏱️ {format_time(remaining)} دیگر کارش تمام می‌شود و آنگاه درخواستت را به او بگو."
             )
             return
 
