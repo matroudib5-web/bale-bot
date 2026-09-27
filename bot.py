@@ -1,3 +1,4 @@
+
 import random
 import time
 import os
@@ -61,7 +62,8 @@ CREATE TABLE IF NOT EXISTS users (
     points INTEGER DEFAULT 0,
     last_nazi DOUBLE PRECISION DEFAULT 0,
     last_gamble DOUBLE PRECISION DEFAULT 0,
-    username TEXT DEFAULT ''
+    username TEXT DEFAULT '',
+    first_name TEXT DEFAULT ''
 )
 """)
 
@@ -71,6 +73,9 @@ try:
     )
     cursor.execute(
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT DEFAULT ''"
+    )
+    cursor.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT DEFAULT ''"
     )
 except Exception as e:
     print("Alter table error:", e)
@@ -114,6 +119,15 @@ def format_time(seconds):
     return f"{m}:{s:02d}"
 
 
+def user_display(uname, uid, fname):
+    if uname:
+        return f"@{uname}"
+    elif fname:
+        return fname
+    else:
+        return str(uid)
+
+
 # =========================
 # پیام‌ها
 # =========================
@@ -128,37 +142,79 @@ async def handle_message(
 
     text = update.message.text.strip()
     user_id = update.message.from_user.id
+    chat_type = update.message.chat.type
 
     try:
         uname = update.message.from_user.username
-        if uname:
-            cursor.execute(
-                "UPDATE users SET username = %s WHERE user_id = %s",
-                (uname, user_id)
-            )
+        fname = update.message.from_user.first_name or ""
+
+        cursor.execute(
+            "UPDATE users SET username = %s, first_name = %s WHERE user_id = %s",
+            (uname or "", fname, user_id)
+        )
     except Exception as e:
         print("username error:", e)
 
     points, last_nazi, last_gamble = get_user(user_id)
 
+    # -------------------------
+    # راهنما
+    # -------------------------
     if text == "راهنما":
         await update.message.reply_text(
             "📖 راهنمای ربات:\n\n"
             "🔹 نازی → دریافت پوینت (هر ۲ دقیقه)\n"
             "🔹 پوینت → مشاهده موجودی\n"
             "🔹 قمار [مقدار] → شرط‌بندی (هر ۱ دقیقه)\n"
-            "🔹 رنکینگ → برترین‌های حزب\n"
             "🔹 انتقال [مقدار] → با ریپلای، پوینت به کاربر بفرست\n"
+            "🔹 رنکم → رتبه‌ی تو در گروه و جهان\n"
+            "🔹 رنک / لیدربرد → ۱۰ برتر گروه\n"
+            "🔹 رنک جهانی / لیدربرد جهانی → ۱۰ برتر جهان\n"
             "🔹 راهنما → همین پیام\n\n"
             "🛠 پشتیبانی: @KM12502\n\n"
             "زنده باد پیشوای بزرگ هیتلر🙋🫡"
         )
         return
 
-    if text == "رنکینگ":
+    # -------------------------
+    # رنکم (رتبه من)
+    # -------------------------
+    if text == "رنکم":
+        try:
+            # رتبه‌ی جهانی
+            cursor.execute(
+                "SELECT COUNT(*) FROM users WHERE points > %s",
+                (points,)
+            )
+            global_rank = cursor.fetchone()[0] + 1
+
+            # رتبه‌ی گروه
+            cursor.execute(
+                "SELECT user_id, points FROM users WHERE points > 0 ORDER BY points DESC"
+            )
+            all_users = cursor.fetchall()
+
+            # چون گروه‌بندی نداریم، فعلاً هر دو یکسان نمایش داده می‌شن
+            # (برای گروه واقعی باید جدول عضویت گروه داشته باشیم)
+            group_rank = global_rank
+
+            await update.message.reply_text(
+                f"📊 رتبه‌ی تو:\n\n"
+                f"🏅 رتبه در گروه: {group_rank}\n"
+                f"🌍 رتبه در جهان: {global_rank}\n"
+                f"💰 نازی پوینت هات: {points}"
+            )
+        except Exception as e:
+            print("rank me error:", e)
+        return
+
+    # -------------------------
+    # رنک جهانی
+    # -------------------------
+    if text in ["رنک جهانی", "لیدربرد جهانی"]:
         try:
             cursor.execute(
-                "SELECT username, points FROM users ORDER BY points DESC LIMIT 10"
+                "SELECT user_id, username, first_name, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT 10"
             )
             top_users = cursor.fetchall()
 
@@ -166,19 +222,50 @@ async def handle_message(
                 await update.message.reply_text("هنوز هیچ کاربری پوینت نداره!")
                 return
 
-            result = "🏆 برترین‌های حزب:\n\n"
-            for i, (uname, pts) in enumerate(top_users, 1):
-                if uname:
-                    name = f"@{uname}"
-                else:
-                    name = "بی‌نام"
-                result += f"{i}. {name} — {pts} نازی پوینت\n"
+            result = "🌍 لیدربرد جهانی:\n\n"
+            for i, (uid, uname, fname, pts) in enumerate(top_users, 1):
+                name = user_display(uname, uid, fname)
+                result += f"{i}- {name} - نازی پوینت هاش: {pts}\n"
 
             await update.message.reply_text(result)
         except Exception as e:
-            print("ranking error:", e)
+            print("global leaderboard error:", e)
         return
 
+    # -------------------------
+    # رنک / لیدربرد (گروه)
+    # -------------------------
+    if text in ["رنک", "لیدربرد"]:
+        try:
+            if chat_type in ["group", "supergroup"]:
+                # فعلاً چون جدول عضویت گروه نداریم، همه رو نشون می‌دیم
+                cursor.execute(
+                    "SELECT user_id, username, first_name, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT 10"
+                )
+            else:
+                cursor.execute(
+                    "SELECT user_id, username, first_name, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT 10"
+                )
+
+            top_users = cursor.fetchall()
+
+            if not top_users:
+                await update.message.reply_text("هنوز هیچ کاربری پوینت نداره!")
+                return
+
+            result = "🏆 لیدربرد گروه:\n\n"
+            for i, (uid, uname, fname, pts) in enumerate(top_users, 1):
+                name = user_display(uname, uid, fname)
+                result += f"{i}- {name} - نازی پوینت هاش: {pts}\n"
+
+            await update.message.reply_text(result)
+        except Exception as e:
+            print("leaderboard error:", e)
+        return
+
+    # -------------------------
+    # پوینت
+    # -------------------------
     if text == "پوینت":
         await update.message.reply_text(
             f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
@@ -186,6 +273,9 @@ async def handle_message(
         )
         return
 
+    # -------------------------
+    # انتقال
+    # -------------------------
     if text.startswith("انتقال"):
         if not update.message.reply_to_message:
             await update.message.reply_text(
@@ -234,6 +324,9 @@ async def handle_message(
         )
         return
 
+    # -------------------------
+    # قمار
+    # -------------------------
     if text.startswith("قمار"):
         parts = text.split()
 
@@ -304,6 +397,9 @@ async def handle_message(
             )
         return
 
+    # -------------------------
+    # نازی
+    # -------------------------
     if "نازی" in text:
         now = time.time()
         elapsed = now - last_nazi
