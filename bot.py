@@ -1,4 +1,3 @@
-
 import random
 import time
 import os
@@ -36,7 +35,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot is running!")
+        self.wfile.write(b"Greater Reich is running!")
 
     def log_message(self, format, *args):
         pass
@@ -63,28 +62,71 @@ CREATE TABLE IF NOT EXISTS users (
     last_nazi DOUBLE PRECISION DEFAULT 0,
     last_gamble DOUBLE PRECISION DEFAULT 0,
     username TEXT DEFAULT '',
-    first_name TEXT DEFAULT ''
+    first_name TEXT DEFAULT '',
+    branch TEXT DEFAULT '',
+    rank INTEGER DEFAULT 1,
+    soldiers INTEGER DEFAULT 0,
+    tanks INTEGER DEFAULT 0,
+    planes INTEGER DEFAULT 0,
+    approval INTEGER DEFAULT 100
 )
 """)
 
 try:
-    cursor.execute(
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_gamble DOUBLE PRECISION DEFAULT 0"
-    )
-    cursor.execute(
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT DEFAULT ''"
-    )
-    cursor.execute(
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT DEFAULT ''"
-    )
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_gamble DOUBLE PRECISION DEFAULT 0")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT DEFAULT ''")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT DEFAULT ''")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS branch TEXT DEFAULT ''")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS rank INTEGER DEFAULT 1")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS soldiers INTEGER DEFAULT 0")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS tanks INTEGER DEFAULT 0")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS planes INTEGER DEFAULT 0")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS approval INTEGER DEFAULT 100")
 except Exception as e:
     print("Alter table error:", e)
+
+
+RANKS = {
+    1: "Soldat",
+    2: "Unteroffizier",
+    3: "Leutnant",
+    4: "Hauptmann",
+    5: "Major",
+    6: "Oberst",
+    7: "General",
+    8: "Feldmarschall",
+    9: "Reichsführer"
+}
+
+RANK_THRESHOLDS = {
+    1: 0,
+    2: 100,
+    3: 300,
+    4: 700,
+    5: 1500,
+    6: 3000,
+    7: 6000,
+    8: 12000,
+    9: 25000
+}
+
+BRANCHES = ["Wehrmacht", "Gestapo", "Propaganda", "Wirtschaft"]
+
+
+def calculate_rank(points):
+    rank = 1
+    for r, threshold in RANK_THRESHOLDS.items():
+        if points >= threshold:
+            rank = r
+    return rank
 
 
 def get_user(user_id):
     try:
         cursor.execute(
-            "SELECT points, last_nazi, last_gamble FROM users WHERE user_id = %s",
+            """SELECT points, last_nazi, last_gamble, branch, rank,
+                      soldiers, tanks, planes, approval
+               FROM users WHERE user_id = %s""",
             (user_id,)
         )
         user = cursor.fetchone()
@@ -94,23 +136,23 @@ def get_user(user_id):
                 "INSERT INTO users (user_id, points, last_nazi, last_gamble) VALUES (%s, %s, %s, %s)",
                 (user_id, 0, 0, 0)
             )
-            return 0, 0, 0
+            return 0, 0, 0, "", 1, 0, 0, 0, 100
 
         return user
 
     except Exception as e:
         print("get_user error:", e)
-        return 0, 0, 0
+        return 0, 0, 0, "", 1, 0, 0, 0, 100
 
 
-def update_points(user_id, points):
+def update_field(user_id, field, value):
     try:
         cursor.execute(
-            "UPDATE users SET points = %s WHERE user_id = %s",
-            (points, user_id)
+            f"UPDATE users SET {field} = %s WHERE user_id = %s",
+            (value, user_id)
         )
     except Exception as e:
-        print("update_points error:", e)
+        print(f"update {field} error:", e)
 
 
 def format_time(seconds):
@@ -132,10 +174,7 @@ def user_display(uname, uid, fname):
 # پیام‌ها
 # =========================
 
-async def handle_message(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not update.message or not update.message.text:
         return
@@ -145,287 +184,394 @@ async def handle_message(
     chat_type = update.message.chat.type
 
     try:
-        uname = update.message.from_user.username
+        uname = update.message.from_user.username or ""
         fname = update.message.from_user.first_name or ""
-
         cursor.execute(
             "UPDATE users SET username = %s, first_name = %s WHERE user_id = %s",
-            (uname or "", fname, user_id)
+            (uname, fname, user_id)
         )
     except Exception as e:
         print("username error:", e)
 
-    points, last_nazi, last_gamble = get_user(user_id)
+    (points, last_nazi, last_gamble,
+     branch, rank, soldiers, tanks, planes, approval) = get_user(user_id)
 
-    # -------------------------
-    # راهنما
-    # -------------------------
+    # محاسبه‌ی رتبه‌ی خودکار
+    new_rank = calculate_rank(points)
+    if new_rank != rank:
+        update_field(user_id, "rank", new_rank)
+        rank = new_rank
+
+    # ================= راهنما =================
     if text == "راهنما":
         await update.message.reply_text(
-            "📖 راهنمای ربات:\n\n"
-            "🔹 نازی → دریافت پوینت (هر ۲ دقیقه)\n"
+            "🏛️ راهنمای Greater Reich:\n\n"
+            "🔹 نازی → دریافت Reichsmark (هر ۲ دقیقه)\n"
             "🔹 پوینت → مشاهده موجودی\n"
             "🔹 قمار [مقدار] → شرط‌بندی (هر ۱ دقیقه)\n"
-            "🔹 انتقال [مقدار] → با ریپلای، پوینت به کاربر بفرست\n"
-            "🔹 رنکم → رتبه‌ی تو در گروه و جهان\n"
-            "🔹 رنک / لیدربرد → ۱۰ برتر گروه\n"
-            "🔹 رنک جهانی / لیدربرد جهانی → ۱۰ برتر جهان\n"
-            "🔹 راهنما → همین پیام\n\n"
+            "🔹 انتقال [مقدار] → با ریپلای\n"
+            "🔹 شاخه [نام] → Wehrmacht / Gestapo / Propaganda / Wirtschaft\n"
+            "🔹 رتبه → مشاهده رتبه و وضعیت\n"
+            "🔹 خرید سرباز [تعداد]\n"
+            "🔹 خرید تانک [تعداد]\n"
+            "🔹 خرید هواپیما [تعداد]\n"
+            "🔹 حمله به [کاربر] → با ریپلای\n"
+            "🔹 مالیات → دریافت مالیات\n"
+            "🔹 تبلیغات → افزایش رضایت مردم\n"
+            "🔹 رنکم → رتبه‌ی من\n"
+            "🔹 رنک → لیدربرد گروه\n"
+            "🔹 رنک جهانی → لیدربرد جهانی\n\n"
             "🛠 پشتیبانی: @KM12502\n\n"
             "زنده باد پیشوای بزرگ هیتلر🙋🫡"
         )
         return
 
-    # -------------------------
-    # رنکم (رتبه من)
-    # -------------------------
-    if text == "رنکم":
-        try:
-            # رتبه‌ی جهانی
-            cursor.execute(
-                "SELECT COUNT(*) FROM users WHERE points > %s",
-                (points,)
-            )
-            global_rank = cursor.fetchone()[0] + 1
-
-            # رتبه‌ی گروه
-            cursor.execute(
-                "SELECT user_id, points FROM users WHERE points > 0 ORDER BY points DESC"
-            )
-            all_users = cursor.fetchall()
-
-            # چون گروه‌بندی نداریم، فعلاً هر دو یکسان نمایش داده می‌شن
-            # (برای گروه واقعی باید جدول عضویت گروه داشته باشیم)
-            group_rank = global_rank
-
-            await update.message.reply_text(
-                f"📊 رتبه‌ی تو:\n\n"
-                f"🏅 رتبه در گروه: {group_rank}\n"
-                f"🌍 رتبه در جهان: {global_rank}\n"
-                f"💰 نازی پوینت هات: {points}"
-            )
-        except Exception as e:
-            print("rank me error:", e)
-        return
-
-    # -------------------------
-    # رنک جهانی
-    # -------------------------
-    if text in ["رنک جهانی", "لیدربرد جهانی"]:
-        try:
-            cursor.execute(
-                "SELECT user_id, username, first_name, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT 10"
-            )
-            top_users = cursor.fetchall()
-
-            if not top_users:
-                await update.message.reply_text("هنوز هیچ کاربری پوینت نداره!")
-                return
-
-            result = "🌍 لیدربرد جهانی:\n\n"
-            for i, (uid, uname, fname, pts) in enumerate(top_users, 1):
-                name = user_display(uname, uid, fname)
-                result += f"{i}- {name} - نازی پوینت هاش: {pts}\n"
-
-            await update.message.reply_text(result)
-        except Exception as e:
-            print("global leaderboard error:", e)
-        return
-
-    # -------------------------
-    # رنک / لیدربرد (گروه)
-    # -------------------------
-    if text in ["رنک", "لیدربرد"]:
-        try:
-            if chat_type in ["group", "supergroup"]:
-                # فعلاً چون جدول عضویت گروه نداریم، همه رو نشون می‌دیم
-                cursor.execute(
-                    "SELECT user_id, username, first_name, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT 10"
-                )
-            else:
-                cursor.execute(
-                    "SELECT user_id, username, first_name, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT 10"
-                )
-
-            top_users = cursor.fetchall()
-
-            if not top_users:
-                await update.message.reply_text("هنوز هیچ کاربری پوینت نداره!")
-                return
-
-            result = "🏆 لیدربرد گروه:\n\n"
-            for i, (uid, uname, fname, pts) in enumerate(top_users, 1):
-                name = user_display(uname, uid, fname)
-                result += f"{i}- {name} - نازی پوینت هاش: {pts}\n"
-
-            await update.message.reply_text(result)
-        except Exception as e:
-            print("leaderboard error:", e)
-        return
-
-    # -------------------------
-    # پوینت
-    # -------------------------
+    # ================= پوینت =================
     if text == "پوینت":
         await update.message.reply_text(
             f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
-            f"نازی پوینت هات: {points}"
+            f"Reichsmark: {points}"
         )
         return
 
-    # -------------------------
-    # انتقال
-    # -------------------------
-    if text.startswith("انتقال"):
-        if not update.message.reply_to_message:
+    # ================= رتبه =================
+    if text == "رتبه":
+        rank_name = RANKS.get(rank, "Soldat")
+        await update.message.reply_text(
+            f"🎖️ وضعیت تو در رایش:\n\n"
+            f"🔹 رتبه: {rank_name} (سطح {rank})\n"
+            f"🔹 شاخه: {branch if branch else 'انتخاب نشده'}\n"
+            f"💰 Reichsmark: {points}\n"
+            f"🪖 سرباز: {soldiers}\n"
+            f"🛡️ تانک: {tanks}\n"
+            f"✈️ هواپیما: {planes}\n"
+            f"👥 رضایت مردم: {approval}%"
+        )
+        return
+
+    # ================= شاخه =================
+    if text.startswith("شاخه"):
+        parts = text.split()
+        if len(parts) != 2:
             await update.message.reply_text(
-                "❌ برای انتقال، روی پیام کاربر ریپلای کن و بنویس:\n"
-                "انتقال 100"
+                "❌ فرمت: شاخه Wehrmacht\n"
+                "شاخه‌ها: Wehrmacht / Gestapo / Propaganda / Wirtschaft"
             )
             return
 
-        target_user = update.message.reply_to_message.from_user
-        target_id = target_user.id
+        chosen = parts[1]
+        if chosen not in BRANCHES:
+            await update.message.reply_text(
+                "❌ شاخه نامعتبر!\n"
+                "شاخه‌ها: Wehrmacht / Gestapo / Propaganda / Wirtschaft"
+            )
+            return
 
+        if branch:
+            await update.message.reply_text(
+                f"❌ تو قبلاً شاخه‌ی {branch} رو انتخاب کردی!"
+            )
+            return
+
+        update_field(user_id, "branch", chosen)
+        await update.message.reply_text(
+            f"✅ به شاخه‌ی {chosen} پیوستی!\n"
+            f"زنده باد پیشوا🙋🫡"
+        )
+        return
+
+    # ================= خرید سرباز =================
+    if text.startswith("خرید سرباز"):
+        parts = text.split()
+        if len(parts) != 3:
+            await update.message.reply_text("❌ فرمت: خرید سرباز 5")
+            return
+        try:
+            qty = int(parts[2])
+        except:
+            await update.message.reply_text("❌ تعداد باید عدد باشه!")
+            return
+        if qty <= 0:
+            await update.message.reply_text("❌ تعداد باید بیشتر از ۰ باشه!")
+            return
+        cost = qty * 10
+        if points < cost:
+            await update.message.reply_text(f"❌ Reichsmark کافی نداری! نیاز: {cost}")
+            return
+        update_field(user_id, "points", points - cost)
+        update_field(user_id, "soldiers", soldiers + qty)
+        await update.message.reply_text(
+            f"✅ {qty} سرباز خریدی!\n"
+            f"💰 هزینه: {cost}\n"
+            f"🪖 سربازان تو: {soldiers + qty}"
+        )
+        return
+
+    # ================= خرید تانک =================
+    if text.startswith("خرید تانک"):
+        parts = text.split()
+        if len(parts) != 3:
+            await update.message.reply_text("❌ فرمت: خرید تانک 2")
+            return
+        try:
+            qty = int(parts[2])
+        except:
+            await update.message.reply_text("❌ تعداد باید عدد باشه!")
+            return
+        if qty <= 0:
+            await update.message.reply_text("❌ تعداد باید بیشتر از ۰ باشه!")
+            return
+        cost = qty * 50
+        if points < cost:
+            await update.message.reply_text(f"❌ Reichsmark کافی نداری! نیاز: {cost}")
+            return
+        update_field(user_id, "points", points - cost)
+        update_field(user_id, "tanks", tanks + qty)
+        await update.message.reply_text(
+            f"✅ {qty} تانک خریدی!\n"
+            f"💰 هزینه: {cost}\n"
+            f"🛡️ تانک‌های تو: {tanks + qty}"
+        )
+        return
+
+    # ================= خرید هواپیما =================
+    if text.startswith("خرید هواپیما"):
+        parts = text.split()
+        if len(parts) != 3:
+            await update.message.reply_text("❌ فرمت: خرید هواپیما 1")
+            return
+        try:
+            qty = int(parts[2])
+        except:
+            await update.message.reply_text("❌ تعداد باید عدد باشه!")
+            return
+        if qty <= 0:
+            await update.message.reply_text("❌ تعداد باید بیشتر از ۰ باشه!")
+            return
+        cost = qty * 100
+        if points < cost:
+            await update.message.reply_text(f"❌ Reichsmark کافی نداری! نیاز: {cost}")
+            return
+        update_field(user_id, "points", points - cost)
+        update_field(user_id, "planes", planes + qty)
+        await update.message.reply_text(
+            f"✅ {qty} هواپیما خریدی!\n"
+            f"💰 هزینه: {cost}\n"
+            f"✈️ هواپیماهای تو: {planes + qty}"
+        )
+        return
+
+    # ================= حمله =================
+    if text.startswith("حمله به"):
+        if not update.message.reply_to_message:
+            await update.message.reply_text("❌ روی پیام کاربر ریپلای کن و بنویس: حمله به")
+            return
+
+        target = update.message.reply_to_message.from_user
+        target_id = target.id
+
+        if target_id == user_id:
+            await update.message.reply_text("❌ به خودت حمله نکن!")
+            return
+
+        my_power = (soldiers * 1) + (tanks * 5) + (planes * 10)
+        if my_power < 10:
+            await update.message.reply_text("❌ قدرت نظامی کافی نداری! اول تجهیزات بخر.")
+            return
+
+        (t_points, _, _, _, _, t_soldiers, t_tanks, t_planes, _) = get_user(target_id)
+        target_power = (t_soldiers * 1) + (t_tanks * 5) + (t_planes * 10)
+
+        my_total = my_power * random.uniform(0.7, 1.3)
+        target_total = target_power * random.uniform(0.7, 1.3) + 10
+
+        if my_total > target_total:
+            # برد
+            gain = random.randint(50, 200)
+            new_points = points + gain
+            update_field(user_id, "points", new_points)
+
+            # تلفات دشمن
+            if t_soldiers > 0:
+                update_field(target_id, "soldiers", max(0, t_soldiers - 1))
+
+            await update.message.reply_text(
+                f"🎉 حمله موفق بود!\n"
+                f"💰 +{gain} Reichsmark\n"
+                f"زنده باد پیشوا🙋🫡"
+            )
+        else:
+            # باخت
+            loss = random.randint(30, 100)
+            new_points = max(0, points - loss)
+            update_field(user_id, "points", new_points)
+
+            if soldiers > 0:
+                update_field(user_id, "soldiers", soldiers - 1)
+
+            await update.message.reply_text(
+                f"💔 حمله شکست خورد!\n"
+                f"💰 -{loss} Reichsmark\n"
+                f"🪖 یک سرباز از دست دادی."
+            )
+        return
+
+    # ================= مالیات =================
+    if text == "مالیات":
+        tax = random.randint(20, 50)
+        new_points = points + tax
+        update_field(user_id, "points", new_points)
+        await update.message.reply_text(
+            f"💰 مالیات دریافت شد: +{tax} Reichsmark\n"
+            f"موجودی: {new_points}"
+        )
+        return
+
+    # ================= تبلیغات =================
+    if text == "تبلیغات":
+        if points < 50:
+            await update.message.reply_text("❌ نیاز به ۵۰ Reichsmark داری!")
+            return
+        update_field(user_id, "points", points - 50)
+        new_approval = min(100, approval + 5)
+        update_field(user_id, "approval", new_approval)
+        await update.message.reply_text(
+            f"📢 تبلیغات انجام شد!\n"
+            f"👥 رضایت مردم: {new_approval}%"
+        )
+        return
+
+    # ================= رنکم =================
+    if text == "رنکم":
+        cursor.execute("SELECT COUNT(*) FROM users WHERE points > %s", (points,))
+        global_rank = cursor.fetchone()[0] + 1
+        await update.message.reply_text(
+            f"📊 رتبه‌ی تو:\n"
+            f"🏅 رتبه جهانی: {global_rank}\n"
+            f"💰 Reichsmark: {points}"
+        )
+        return
+
+    # ================= لیدربرد جهانی =================
+    if text in ["رنک جهانی", "لیدربرد جهانی"]:
+        cursor.execute(
+            "SELECT user_id, username, first_name, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT 10"
+        )
+        top = cursor.fetchall()
+        if not top:
+            await update.message.reply_text("هنوز هیچ کاربری پوینت نداره!")
+            return
+        result = "🌍 لیدربرد جهانی:\n\n"
+        for i, (uid, uname, fname, pts) in enumerate(top, 1):
+            name = user_display(uname, uid, fname)
+            result += f"{i}- {name} - نازی پوینت هاش: {pts}\n"
+        await update.message.reply_text(result)
+        return
+
+    # ================= لیدربرد گروه =================
+    if text in ["رنک", "لیدربرد"]:
+        cursor.execute(
+            "SELECT user_id, username, first_name, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT 10"
+        )
+        top = cursor.fetchall()
+        if not top:
+            await update.message.reply_text("هنوز هیچ کاربری پوینت نداره!")
+            return
+        result = "🏆 لیدربرد گروه:\n\n"
+        for i, (uid, uname, fname, pts) in enumerate(top, 1):
+            name = user_display(uname, uid, fname)
+            result += f"{i}- {name} - نازی پوینت هاش: {pts}\n"
+        await update.message.reply_text(result)
+        return
+
+    # ================= انتقال =================
+    if text.startswith("انتقال"):
+        if not update.message.reply_to_message:
+            await update.message.reply_text("❌ روی پیام کاربر ریپلای کن و بنویس: انتقال 100")
+            return
+        target = update.message.reply_to_message.from_user
+        target_id = target.id
         if target_id == user_id:
             await update.message.reply_text("❌ نمی‌تونی به خودت پوینت بدی!")
             return
-
         parts = text.split()
         if len(parts) != 2:
-            await update.message.reply_text("❌ فرمت درست: انتقال 100")
+            await update.message.reply_text("❌ فرمت: انتقال 100")
             return
-
         try:
             amount = int(parts[1])
         except:
             await update.message.reply_text("❌ مقدار باید عدد باشه!")
             return
-
-        if amount <= 0:
-            await update.message.reply_text("❌ مقدار باید بیشتر از ۰ باشه!")
+        if amount <= 0 or amount > points:
+            await update.message.reply_text("❌ مقدار نامعتبر!")
             return
-
-        if amount > points:
-            await update.message.reply_text(
-                f"❌ پوینت کافی نداری!\n"
-                f"نازی پوینت هات: {points}"
-            )
-            return
-
-        target_points, _, _ = get_user(target_id)
-
-        update_points(user_id, points - amount)
-        update_points(target_id, target_points + amount)
-
+        t_points, _, _, _, _, _, _, _, _ = get_user(target_id)
+        update_field(user_id, "points", points - amount)
+        update_field(target_id, "points", t_points + amount)
         await update.message.reply_text(
-            f"✅ {amount} نازی پوینت به {target_user.first_name} انتقال یافت.\n"
-            f"نازی پوینت هات: {points - amount}"
+            f"✅ {amount} Reichsmark به {target.first_name} انتقال یافت."
         )
         return
 
-    # -------------------------
-    # قمار
-    # -------------------------
+    # ================= قمار =================
     if text.startswith("قمار"):
         parts = text.split()
-
         if len(parts) != 2:
-            await update.message.reply_text("❌ فرمت درست: قمار 100")
+            await update.message.reply_text("❌ فرمت: قمار 100")
             return
-
         try:
             amount = int(parts[1])
         except:
             await update.message.reply_text("❌ مقدار باید عدد باشه!")
             return
-
-        if amount <= 0:
-            await update.message.reply_text("❌ مقدار باید بیشتر از ۰ باشه!")
+        if amount <= 0 or amount > points:
+            await update.message.reply_text("❌ مقدار نامعتبر یا موجودی کافی نیست!")
             return
-
-        if amount > points:
-            await update.message.reply_text(
-                f"❌ پوینت کافی نداری!\n"
-                f"نازی پوینت هات: {points}"
-            )
-            return
-
         now = time.time()
-        elapsed = now - last_gamble
-
-        if elapsed < GAMBLE_COOLDOWN_SECONDS:
-            remaining = int(GAMBLE_COOLDOWN_SECONDS - elapsed) + 1
-            await update.message.reply_text(
-                f"⏱️ {format_time(remaining)} دیگه می‌تونی قمار کنی."
-            )
+        if now - last_gamble < GAMBLE_COOLDOWN_SECONDS:
+            remaining = int(GAMBLE_COOLDOWN_SECONDS - (now - last_gamble)) + 1
+            await update.message.reply_text(f"⏱️ {format_time(remaining)} دیگه می‌تونی قمار کنی.")
             return
-
         win = random.choice([True, False])
-
         if win:
-            reward = amount * 2
             new_points = points + amount
-            update_points(user_id, new_points)
-            try:
-                cursor.execute(
-                    "UPDATE users SET last_gamble = %s WHERE user_id = %s",
-                    (now, user_id)
-                )
-            except Exception as e:
-                print("gamble time error:", e)
+            update_field(user_id, "points", new_points)
+            update_field(user_id, "last_gamble", now)
             await update.message.reply_text(
                 f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
                 f"پیشوا مقداری پول به تو بخشید.\n"
-                f"{reward} تا دریافت کردی.\n"
-                f"نازی پوینت هات: {new_points}"
+                f"{amount * 2} تا دریافت کردی.\n"
+                f"موجودی: {new_points}"
             )
         else:
             new_points = points - amount
-            update_points(user_id, new_points)
-            try:
-                cursor.execute(
-                    "UPDATE users SET last_gamble = %s WHERE user_id = %s",
-                    (now, user_id)
-                )
-            except Exception as e:
-                print("gamble time error:", e)
+            update_field(user_id, "points", new_points)
+            update_field(user_id, "last_gamble", now)
             await update.message.reply_text(
                 f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
                 f"پولت خرج امور حزب و پیشوا شد.\n"
-                f"نازی پوینت هات: {new_points}"
+                f"موجودی: {new_points}"
             )
         return
 
-    # -------------------------
-    # نازی
-    # -------------------------
+    # ================= نازی =================
     if "نازی" in text:
         now = time.time()
-        elapsed = now - last_nazi
-
-        if elapsed < COOLDOWN_SECONDS:
-            remaining = int(COOLDOWN_SECONDS - elapsed) + 1
+        if now - last_nazi < COOLDOWN_SECONDS:
+            remaining = int(COOLDOWN_SECONDS - (now - last_nazi)) + 1
             await update.message.reply_text(
                 f"پیشوا مشغول امور کشور، مردم، جنگ، حزب و... است.\n"
-                f"⏱️ {format_time(remaining)} دیگر کارش تمام می‌شود و آنگاه درخواستت را به او بگو."
+                f"⏱️ {format_time(remaining)} دیگر کارش تمام می‌شود."
             )
             return
-
         earned = random.randint(MIN_POINTS, MAX_POINTS)
         new_points = points + earned
-
-        try:
-            cursor.execute(
-                "UPDATE users SET points = %s, last_nazi = %s WHERE user_id = %s",
-                (new_points, now, user_id)
-            )
-        except Exception as e:
-            print("nazi update error:", e)
-
+        update_field(user_id, "points", new_points)
+        update_field(user_id, "last_nazi", now)
         await update.message.reply_text(
-            f"به دلیل کار برای حزب در شاخه‌ی خودت، {earned} نازی پوینت دریافت کردی.\n"
-            f"نازی پوینت هات: {new_points}"
+            f"به دلیل کار برای حزب در شاخه‌ی خودت، {earned} Reichsmark دریافت کردی.\n"
+            f"موجودی: {new_points}"
         )
         return
 
@@ -445,13 +591,10 @@ def main():
     )
 
     app.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            handle_message
-        )
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
 
-    print("Bot started...")
+    print("Greater Reich bot started...")
     app.run_polling()
 
 
