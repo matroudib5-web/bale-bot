@@ -52,6 +52,7 @@ def run_server():
 # =========================
 
 conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+conn.autocommit = True
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -63,33 +64,45 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-conn.commit()
+# اضافه کردن ستون last_gamble اگه جدول قبلاً ساخته شده بود
+try:
+    cursor.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_gamble DOUBLE PRECISION DEFAULT 0"
+    )
+except Exception as e:
+    print("Alter table error:", e)
 
 
 def get_user(user_id):
-    cursor.execute(
-        "SELECT points, last_nazi, last_gamble FROM users WHERE user_id = %s",
-        (user_id,)
-    )
-    user = cursor.fetchone()
-
-    if user is None:
+    try:
         cursor.execute(
-            "INSERT INTO users (user_id, points, last_nazi, last_gamble) VALUES (%s, %s, %s, %s)",
-            (user_id, 0, 0, 0)
+            "SELECT points, last_nazi, last_gamble FROM users WHERE user_id = %s",
+            (user_id,)
         )
-        conn.commit()
-        return 0, 0, 0
+        user = cursor.fetchone()
 
-    return user
+        if user is None:
+            cursor.execute(
+                "INSERT INTO users (user_id, points, last_nazi, last_gamble) VALUES (%s, %s, %s, %s)",
+                (user_id, 0, 0, 0)
+            )
+            return 0, 0, 0
+
+        return user
+
+    except Exception as e:
+        print("get_user error:", e)
+        return 0, 0, 0
 
 
 def update_points(user_id, points):
-    cursor.execute(
-        "UPDATE users SET points = %s WHERE user_id = %s",
-        (points, user_id)
-    )
-    conn.commit()
+    try:
+        cursor.execute(
+            "UPDATE users SET points = %s WHERE user_id = %s",
+            (points, user_id)
+        )
+    except Exception as e:
+        print("update_points error:", e)
 
 
 def format_time(seconds):
@@ -162,11 +175,13 @@ async def handle_message(
             reward = amount * 2
             new_points = points + amount
             update_points(user_id, new_points)
-            cursor.execute(
-                "UPDATE users SET last_gamble = %s WHERE user_id = %s",
-                (now, user_id)
-            )
-            conn.commit()
+            try:
+                cursor.execute(
+                    "UPDATE users SET last_gamble = %s WHERE user_id = %s",
+                    (now, user_id)
+                )
+            except Exception as e:
+                print("gamble time error:", e)
             await update.message.reply_text(
                 f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
                 f"پیشوا مقداری پول به تو بخشید.\n"
@@ -176,11 +191,13 @@ async def handle_message(
         else:
             new_points = points - amount
             update_points(user_id, new_points)
-            cursor.execute(
-                "UPDATE users SET last_gamble = %s WHERE user_id = %s",
-                (now, user_id)
-            )
-            conn.commit()
+            try:
+                cursor.execute(
+                    "UPDATE users SET last_gamble = %s WHERE user_id = %s",
+                    (now, user_id)
+                )
+            except Exception as e:
+                print("gamble time error:", e)
             await update.message.reply_text(
                 f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
                 f"پولت خرج امور حزب و پیشوا شد.\n"
@@ -203,11 +220,13 @@ async def handle_message(
         earned = random.randint(MIN_POINTS, MAX_POINTS)
         new_points = points + earned
 
-        cursor.execute(
-            "UPDATE users SET points = %s, last_nazi = %s WHERE user_id = %s",
-            (new_points, now, user_id)
-        )
-        conn.commit()
+        try:
+            cursor.execute(
+                "UPDATE users SET points = %s, last_nazi = %s WHERE user_id = %s",
+                (new_points, now, user_id)
+            )
+        except Exception as e:
+            print("nazi update error:", e)
 
         await update.message.reply_text(
             f"به دلیل کار برای حزب در شاخه‌ی خودت، {earned} نازی پوینت دریافت کردی.\n"
