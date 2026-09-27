@@ -109,7 +109,8 @@ async def handle_message(
 
     if text == "پوینت":
         await update.message.reply_text(
-            f"🥳 نازی پوینت‌هات: {points} (پولداریا 😂)"
+            f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
+            f"نازی پوینت هات: {points}"
         )
         return
 
@@ -133,7 +134,7 @@ async def handle_message(
         if amount > points:
             await update.message.reply_text(
                 f"❌ پوینت کافی نداری!\n"
-                f"🥳 نازی پوینت‌هات: {points}"
+                f"نازی پوینت هات: {points}"
             )
             return
 
@@ -143,17 +144,17 @@ async def handle_message(
             new_points = points + amount
             update_points(user_id, new_points)
             await update.message.reply_text(
-                f"🎉 بردی!\n"
-                f"🪙 +{amount} نازی پوینت\n"
-                f"🥳 نازی پوینت‌هات: {new_points} (پولداریا 😂)"
+                f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
+                f"{amount} تا گرفتی.\n"
+                f"نازی پوینت هات: {new_points}"
             )
         else:
             new_points = points - amount
             update_points(user_id, new_points)
             await update.message.reply_text(
-                f"💔 باختی!\n"
-                f"🪙 -{amount} نازی پوینت\n"
-                f"🥳 نازی پوینت‌هات: {new_points} (پولداریا 😂)"
+                f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
+                f"پولت به یاد پیشوا خرج شد.\n"
+                f"نازی پوینت هات: {new_points}"
             )
         return
 
@@ -179,9 +180,9 @@ async def handle_message(
         conn.commit()
 
         await update.message.reply_text(
-            f"زنده باد هیتلر🙋🫡" 
-            f"🎉 {earned} نازی پوینت گرفتی!\n"
-            f"🥳 نازی پوینت‌هات: {new_points} (پولداریا 😂)"
+            f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
+            f"{earned} تا نازی پوینت گرفتی.\n"
+            f"نازی پوینت هات: {new_points}"
         )
         return
 
