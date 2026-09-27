@@ -19,7 +19,7 @@ from telegram.ext import (
 
 TOKEN = "152004939:gjvarQqggvlUKNXdDBoJPx-mTNcNGPBu0k8"
 
-COOLDOWN_SECONDS = 10
+COOLDOWN_SECONDS = 120
 MIN_POINTS = 10
 MAX_POINTS = 30
 
@@ -90,6 +90,12 @@ def update_points(user_id, points):
     conn.commit()
 
 
+def format_time(seconds):
+    m = seconds // 60
+    s = seconds % 60
+    return f"{m}:{s:02d}"
+
+
 # =========================
 # پیام‌ها
 # =========================
@@ -141,11 +147,13 @@ async def handle_message(
         win = random.choice([True, False])
 
         if win:
+            reward = amount * 2
             new_points = points + amount
             update_points(user_id, new_points)
             await update.message.reply_text(
                 f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
-                f"{amount} تا گرفتی.\n"
+                f"پیشوا مقداری پول به تو بخشید.\n"
+                f"{reward} تا دریافت کردی.\n"
                 f"نازی پوینت هات: {new_points}"
             )
         else:
@@ -153,7 +161,7 @@ async def handle_message(
             update_points(user_id, new_points)
             await update.message.reply_text(
                 f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
-                f"پولت به یاد پیشوا خرج شد.\n"
+                f"پولت خرج امور حزب و پیشوا شد.\n"
                 f"نازی پوینت هات: {new_points}"
             )
         return
@@ -165,8 +173,8 @@ async def handle_message(
         if elapsed < COOLDOWN_SECONDS:
             remaining = int(COOLDOWN_SECONDS - elapsed) + 1
             await update.message.reply_text(
-                f"⏱️ هنوز زوده!\n"
-                f"{remaining} ثانیه دیگه دوباره امتحان کن."
+                f"پیشوا مشغول امور کشور، مردم، جنگ، حزب و... است.\n"
+                f"⏱️ {format_time(remaining)} دیگه امتحان کن."
             )
             return
 
@@ -180,8 +188,7 @@ async def handle_message(
         conn.commit()
 
         await update.message.reply_text(
-            f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
-            f"{earned} تا نازی پوینت گرفتی.\n"
+            f"به دلیل کار برای حزب در شاخه‌ی خودت، {earned} نازی پوینت دریافت کردی.\n"
             f"نازی پوینت هات: {new_points}"
         )
         return
