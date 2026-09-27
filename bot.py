@@ -20,6 +20,7 @@ from telegram.ext import (
 TOKEN = "152004939:gjvarQqggvlUKNXdDBoJPx-mTNcNGPBu0k8"
 
 COOLDOWN_SECONDS = 120
+GAMBLE_COOLDOWN_SECONDS = 60
 MIN_POINTS = 10
 MAX_POINTS = 30
 
@@ -57,7 +58,8 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT PRIMARY KEY,
     points INTEGER DEFAULT 0,
-    last_nazi DOUBLE PRECISION DEFAULT 0
+    last_nazi DOUBLE PRECISION DEFAULT 0,
+    last_gamble DOUBLE PRECISION DEFAULT 0
 )
 """)
 
@@ -66,18 +68,18 @@ conn.commit()
 
 def get_user(user_id):
     cursor.execute(
-        "SELECT points, last_nazi FROM users WHERE user_id = %s",
+        "SELECT points, last_nazi, last_gamble FROM users WHERE user_id = %s",
         (user_id,)
     )
     user = cursor.fetchone()
 
     if user is None:
         cursor.execute(
-            "INSERT INTO users (user_id, points, last_nazi) VALUES (%s, %s, %s)",
-            (user_id, 0, 0)
+            "INSERT INTO users (user_id, points, last_nazi, last_gamble) VALUES (%s, %s, %s, %s)",
+            (user_id, 0, 0, 0)
         )
         conn.commit()
-        return 0, 0
+        return 0, 0, 0
 
     return user
 
@@ -111,7 +113,7 @@ async def handle_message(
     text = update.message.text.strip()
     user_id = update.message.from_user.id
 
-    points, last_nazi = get_user(user_id)
+    points, last_nazi, last_gamble = get_user(user_id)
 
     if text == "پوینت":
         await update.message.reply_text(
@@ -144,12 +146,27 @@ async def handle_message(
             )
             return
 
+        now = time.time()
+        elapsed = now - last_gamble
+
+        if elapsed < GAMBLE_COOLDOWN_SECONDS:
+            remaining = int(GAMBLE_COOLDOWN_SECONDS - elapsed) + 1
+            await update.message.reply_text(
+                f"⏱️ {format_time(remaining)} دیگه می‌تونی قمار کنی."
+            )
+            return
+
         win = random.choice([True, False])
 
         if win:
             reward = amount * 2
             new_points = points + amount
             update_points(user_id, new_points)
+            cursor.execute(
+                "UPDATE users SET last_gamble = %s WHERE user_id = %s",
+                (now, user_id)
+            )
+            conn.commit()
             await update.message.reply_text(
                 f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
                 f"پیشوا مقداری پول به تو بخشید.\n"
@@ -159,6 +176,11 @@ async def handle_message(
         else:
             new_points = points - amount
             update_points(user_id, new_points)
+            cursor.execute(
+                "UPDATE users SET last_gamble = %s WHERE user_id = %s",
+                (now, user_id)
+            )
+            conn.commit()
             await update.message.reply_text(
                 f"زنده باد پیشوای بزرگ هیتلر🙋🫡\n"
                 f"پولت خرج امور حزب و پیشوا شد.\n"
