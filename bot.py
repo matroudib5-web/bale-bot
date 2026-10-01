@@ -48,14 +48,8 @@ def ask_ai(user_message):
         data = {
             "model": GROQ_MODEL,
             "messages": [
-                {
-                    "role": "system",
-                    "content": "تو یه دستیار فارسی‌زبان هستی. کوتاه، مفید و دقیق جواب بده."
-                },
-                {
-                    "role": "user",
-                    "content": user_message
-                }
+                {"role": "system", "content": "تو یه دستیار فارسی‌زبان هستی. کوتاه جواب بده."},
+                {"role": "user", "content": user_message}
             ],
             "temperature": 0.7,
             "max_tokens": 500
@@ -65,10 +59,8 @@ def ask_ai(user_message):
             result = r.json()
             return result["choices"][0]["message"]["content"].strip()
         else:
-            print("Groq error:", r.status_code, r.text)
-            return f"خطا در هوش مصنوعی: {r.status_code}"
+            return f"خطا {r.status_code}: {r.text[:300]}"
     except Exception as e:
-        print("Ask AI error:", e)
         return f"خطا: {e}"
 
 
