@@ -1,10 +1,11 @@
 import os
+import re
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+import requests
 from telegram import Update
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
-from duckduckgo_search import DDGS
 
 TOKEN = "1614589734:BTCrjcrl0i2Mr9z47KUs6HXDzsy1tUx9fiw"
 
@@ -24,16 +25,40 @@ def run_server():
 
 
 def search_web(query):
+    # تلاش ۱: DuckDuckGo HTML
     try:
-        results = DDGS().text(query, max_results=3)
-        if not results:
-            return "چیزی پیدا نکردم."
-        answer = ""
-        for r in results:
-            answer += f"📌 {r.get('title', '')}\n{r.get('body', '')}\n\n"
-        return answer.strip()
+        url = "https://html.duckduckgo.com/html/"
+        r = requests.post(
+            url,
+            data={"q": query},
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        if r.status_code == 200:
+            snippets = re.findall(r'result__snippet[^>]*>(.*?)</a>', r.text, re.DOTALL)
+            if snippets:
+                answer = ""
+                for s in snippets[:3]:
+                    clean = re.sub(r'<[^>]+>', '', s).strip()
+                    if clean:
+                        answer += f"• {clean}\n\n"
+                if answer:
+                    return answer.strip()
     except Exception as e:
-        return f"خطا در سرچ: {e}"
+        print("DDG error:", e)
+
+    # تلاش ۲: Wikipedia فارسی
+    try:
+        url = "https://fa.wikipedia.org/api/rest_v1/page/summary/" + query.replace(" ", "_")
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            if "extract" in data and data["extract"]:
+                return f"📖 {data['extract']}"
+    except Exception as e:
+        print("Wiki error:", e)
+
+    return "چیزی پیدا نکردم."
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
