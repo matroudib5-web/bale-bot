@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
 from duckduckgo_search import DDGS
 
-TOKEN = "1614589734:T-_YVCqt401wZRNgBhosKzi1xuS0x4Tdipo"
+TOKEN = "1614589734:BTCrjcrl0i2Mr9z47KUs6HXDzsy1tUx9fiw"
 
 
 class Handler(BaseHTTPRequestHandler):
