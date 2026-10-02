@@ -3,6 +3,7 @@
 """
 🎖️ ربات بازی جنگ جهانی دوم
 برای پیام‌رسان بله (Bale)
+با سیستم عضویت اجباری
 """
 
 import os
@@ -20,17 +21,24 @@ from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
     MessageHandler, filters, ContextTypes
 )
+from telegram.constants import ChatMemberStatus
 
-# 🔥 ایمپورت وب‌سرور برای Render
 from keep_alive import keep_alive
 
 # ═══════════════════════════════════════════════════════════════
 #  ⚙️ تنظیمات
 # ═══════════════════════════════════════════════════════════════
-BOT_TOKEN = os.environ.get("152004939:gjvarQqggvlUKNXdDBoJPx-mTNcNGPBu0k8", "")
+# 🔑 توکن ربات بله رو اینجا بذار 👇
+BOT_TOKEN = "152004939:gjvarQqggvlUKNXdDBoJPx-mTNcNGPBu0k8"
 
 DB_FILE = "ww2_game.db"
 TURN_HOURS = 24
+
+# 🔒 کانال‌های اجباری
+REQUIRED_CHANNELS = [
+    {"username": "@Hitlerss1",     "label": "عضویت در کانال اول"},
+    {"username": "@WORLDWAR21250", "label": "عضویت در کانال دوم"},
+]
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -121,6 +129,66 @@ PROJECTS = {
 
 
 # ═══════════════════════════════════════════════════════════════
+#  🔒 بررسی عضویت اجباری
+# ═══════════════════════════════════════════════════════════════
+async def is_user_member(update: Update, ctx: ContextTypes.DEFAULT_TYPE, username: str) -> bool:
+    try:
+        member = await ctx.bot.get_chat_member(chat_id=username, user_id=update.effective_user.id)
+        if member.status in (ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER):
+            return True
+        return False
+    except Exception as e:
+        log.warning(f"خطا در چک عضویت {username}: {e}")
+        return False
+
+
+async def check_all_memberships(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    not_joined = []
+    for ch in REQUIRED_CHANNELS:
+        ok = await is_user_member(update, ctx, ch["username"])
+        if not ok:
+            not_joined.append(ch)
+    return not_joined
+
+
+def join_message_kb():
+    rows = []
+    for ch in REQUIRED_CHANNELS:
+        username = ch["username"].lstrip("@")
+        rows.append([InlineKeyboardButton(
+            ch["label"],
+            url=f"https://ble.ir/{username}"
+        )])
+    return InlineKeyboardMarkup(rows)
+
+
+def join_reply_kb():
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton("عضو شدم ✅")]],
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
+
+
+async def send_join_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = (
+        "🔒 *برای استفاده از بات، در کانال اسپانسر و کانال خودمان عضو شوید.*\n\n"
+        f"📢 کانال اول: {REQUIRED_CHANNELS[0]['username']}\n"
+        f"📢 کانال دوم: {REQUIRED_CHANNELS[1]['username']}\n\n"
+        "پس از عضویت، دکمه *«عضو شدم ✅»* رو بزن."
+    )
+    await update.message.reply_text(
+        text,
+        reply_markup=join_message_kb(),
+        parse_mode="Markdown"
+    )
+    await update.message.reply_text(
+        "👇 وقتی عضو شدی این دکمه رو بزن:",
+        reply_markup=join_reply_kb()
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
 #  💾 دیتابیس
 # ═══════════════════════════════════════════════════════════════
 def init_db():
@@ -199,14 +267,10 @@ def process_turn(user_id):
     g = get_game(user_id)
     if not g:
         return None
-
     country = COUNTRIES[g["country"]]
     completed = json.loads(g["completed_projects"] or "[]")
     projects = json.loads(g["projects"] or "[]")
-
-    bonus = {"steel": 1.0, "oil": 1.0, "coal": 1.0, "manpower": 1.0,
-             "attack": 1.0, "defense": 1.0, "morale": 1.0}
-
+    bonus = {"steel": 1.0, "oil": 1.0, "coal": 1.0, "manpower": 1.0}
     for p_key in completed:
         p = PROJECTS.get(p_key)
         if not p:
@@ -216,8 +280,6 @@ def process_turn(user_id):
         elif eff == "oil_bonus":       bonus["oil"]      += val
         elif eff == "coal_bonus":      bonus["coal"]     += val
         elif eff == "manpower_bonus":  bonus["manpower"] += val
-        elif eff == "attack_bonus":    bonus["attack"]   += val
-        elif eff == "defense_bonus":   bonus["defense"]  += val
 
     new_money    = g["money"]    + country["money"]
     new_food     = g["food"]     + country["food"]
@@ -238,7 +300,6 @@ def process_turn(user_id):
                 still_building.append(f"{key}:{days}")
         else:
             still_building.append(p_key)
-
     completed.extend(newly_done)
 
     old_date = datetime.strptime(g["game_date"], "%Y-%m-%d")
@@ -252,7 +313,6 @@ def process_turn(user_id):
         projects=json.dumps(still_building),
         completed_projects=json.dumps(completed),
         last_turn=datetime.utcnow().isoformat())
-
     return {"newly_done": newly_done, "date": new_date.strftime("%Y-%m-%d")}
 
 
@@ -281,10 +341,8 @@ def compute_army_power(g, mode="attack"):
             attack_bonus += p["value"] / 100
         elif p["effect"] == "defense_bonus":
             defense_bonus += p["value"] / 100
-
     atk = g["soldiers"]*5 + g["tanks"]*15 + g["planes"]*12 + g["ships"]*20
     dfn = g["soldiers"]*8 + g["tanks"]*10 + g["planes"]*6  + g["ships"]*18
-
     if mode == "attack":
         return int(atk * attack_bonus)
     return int(dfn * defense_bonus)
@@ -327,48 +385,6 @@ def countries_kb():
     return InlineKeyboardMarkup(rows)
 
 
-# ═══════════════════════════════════════════════════════════════
-#  📝 هندلرها
-# ═══════════════════════════════════════════════════════════════
-async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    g = get_game(uid)
-    if g:
-        text = (
-            f"👋 دوباره خوش اومدی!\n"
-            f"کشورت: {COUNTRIES[g['country']]['flag']} {COUNTRIES[g['country']]['name']}\n"
-            f"برای ادامه از منو استفاده کن:"
-        )
-        await update.message.reply_text(text, reply_markup=main_menu_kb())
-        return
-
-    await update.message.reply_text(
-        "🎖️ به بازی *جنگ جهانی دوم* خوش آمدی!\n\n"
-        "یکی از ۷ کشور اصلی رو انتخاب کن و از سال ۱۹۳۹ شروع کن.\n"
-        "هدف: پیروزی در جنگ!",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎮 بازی جدید", callback_data="newgame")],
-            [InlineKeyboardButton("📖 راهنما", callback_data="help")],
-        ]),
-        parse_mode="Markdown"
-    )
-
-
-async def cmd_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    g = get_game(uid)
-    if not g:
-        await update.message.reply_text("اول بازی جدید بساز: /start")
-        return
-    result = check_and_run_turn(uid)
-    g = get_game(uid)
-    text = render_dashboard(g)
-    if result and result["newly_done"]:
-        done_names = [PROJECTS[k]["name"] for k in result["newly_done"]]
-        text = "✅ پروژه‌ها تکمیل شد: " + ", ".join(done_names) + "\n\n" + text
-    await update.message.reply_text(text, reply_markup=main_menu_kb(), parse_mode="Markdown")
-
-
 def render_dashboard(g):
     c = COUNTRIES[g["country"]]
     return (
@@ -388,7 +404,86 @@ def render_dashboard(g):
     )
 
 
-# ─── Start / New Game ───────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+#  📝 هندلرها
+# ═══════════════════════════════════════════════════════════════
+async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    not_joined = await check_all_memberships(update, ctx)
+    if not_joined:
+        await send_join_message(update, ctx)
+        return
+    uid = update.effective_user.id
+    g = get_game(uid)
+    if g:
+        await update.message.reply_text(
+            f"👋 دوباره خوش اومدی!\n"
+            f"کشورت: {COUNTRIES[g['country']]['flag']} {COUNTRIES[g['country']]['name']}",
+            reply_markup=main_menu_kb()
+        )
+        return
+    await update.message.reply_text(
+        "🎖️ به بازی *جنگ جهانی دوم* خوش آمدی!\n\n"
+        "یکی از ۷ کشور اصلی رو انتخاب کن و از سال ۱۹۳۹ شروع کن.\n"
+        "هدف: پیروزی در جنگ!",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎮 بازی جدید", callback_data="newgame")],
+            [InlineKeyboardButton("📖 راهنما", callback_data="help")],
+        ]),
+        parse_mode="Markdown"
+    )
+
+
+async def cmd_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    not_joined = await check_all_memberships(update, ctx)
+    if not_joined:
+        await send_join_message(update, ctx)
+        return
+    uid = update.effective_user.id
+    g = get_game(uid)
+    if not g:
+        await update.message.reply_text("اول بازی جدید بساز: /start")
+        return
+    result = check_and_run_turn(uid)
+    g = get_game(uid)
+    text = render_dashboard(g)
+    if result and result["newly_done"]:
+        done_names = [PROJECTS[k]["name"] for k in result["newly_done"]]
+        text = "✅ پروژه‌ها تکمیل شد: " + ", ".join(done_names) + "\n\n" + text
+    await update.message.reply_text(text, reply_markup=main_menu_kb(), parse_mode="Markdown")
+
+
+async def on_joined_check(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    not_joined = await check_all_memberships(update, ctx)
+    if not_joined:
+        names = ", ".join(ch["username"] for ch in not_joined)
+        await update.message.reply_text(
+            f"❌ هنوز در این کانال‌ها عضو نشدی:\n{names}\n\n"
+            "لطفاً اول عضو شو، بعد دکمه رو بزن.",
+            reply_markup=join_reply_kb()
+        )
+        return
+    await update.message.reply_text(
+        "✅ عضویتت تأیید شد!\n\nحالا می‌تونی بازی رو شروع کنی 👇",
+        reply_markup=ReplyKeyboardMarkup(
+            [[KeyboardButton("🎮 منو")]],
+            resize_keyboard=True
+        )
+    )
+    uid = update.effective_user.id
+    g = get_game(uid)
+    if g:
+        await update.message.reply_text(render_dashboard(g), reply_markup=main_menu_kb(), parse_mode="Markdown")
+    else:
+        await update.message.reply_text(
+            "🎖️ برای شروع:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎮 بازی جدید", callback_data="newgame")],
+                [InlineKeyboardButton("📖 راهنما", callback_data="help")],
+            ])
+        )
+
+
+# ─── Callback Handlers ──────────────────────────────────────
 async def cb_newgame(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -422,8 +517,7 @@ async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def cb_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-    uid = q.from_user.id
-    g = get_game(uid)
+    g = get_game(q.from_user.id)
     if not g:
         await q.edit_message_text("بازی پیدا نشد. /start رو بزن.")
         return
@@ -491,32 +585,30 @@ async def cb_buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     g = get_game(uid)
     action = q.data
     msg = ""
-
     if action == "buy_soldier":
         if g["money"] >= 10 and g["manpower"] >= 1:
             save_game(uid, money=g["money"]-10, manpower=g["manpower"]-1, soldiers=g["soldiers"]+1)
             msg = "✅ ۱ سرباز اضافه شد."
         else:
-            msg = "❌ منابع کافی نداری. (۱۰ پول + ۱ نیرو)"
+            msg = "❌ منابع کافی نداری."
     elif action == "buy_tank":
         if g["money"] >= 30 and g["steel"] >= 5 and g["oil"] >= 2:
             save_game(uid, money=g["money"]-30, steel=g["steel"]-5, oil=g["oil"]-2, tanks=g["tanks"]+1)
             msg = "✅ ۱ تانک ساخته شد."
         else:
-            msg = "❌ منابع کافی نداری. (۳۰ پول + ۵ فولاد + ۲ نفت)"
+            msg = "❌ منابع کافی نداری."
     elif action == "buy_plane":
         if g["money"] >= 25 and g["steel"] >= 3 and g["oil"] >= 3:
             save_game(uid, money=g["money"]-25, steel=g["steel"]-3, oil=g["oil"]-3, planes=g["planes"]+1)
             msg = "✅ ۱ هواپیما ساخته شد."
         else:
-            msg = "❌ منابع کافی نداری. (۲۵ پول + ۳ فولاد + ۳ نفت)"
+            msg = "❌ منابع کافی نداری."
     elif action == "buy_ship":
         if g["money"] >= 80 and g["steel"] >= 10 and g["oil"] >= 5:
             save_game(uid, money=g["money"]-80, steel=g["steel"]-10, oil=g["oil"]-5, ships=g["ships"]+1)
             msg = "✅ ۱ کشتی ساخته شد."
         else:
-            msg = "❌ منابع کافی نداری. (۸۰ پول + ۱۰ فولاد + ۵ نفت)"
-
+            msg = "❌ منابع کافی نداری."
     await q.answer(msg, show_alert=True)
     await cb_army(update, ctx)
 
@@ -527,20 +619,15 @@ async def cb_res(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     g = get_game(q.from_user.id)
     tree = RESEARCH.get(g["country"], [])
     unlocked = json.loads(g["research"] or "[]")
-
     lines = [f"🔬 *درخت تحقیقات — {COUNTRIES[g['country']]['name']}*\n"]
     rows = []
     for name, cost, days, power in tree:
         if name in unlocked:
             lines.append(f"✅ {name} (قدرت {power})")
         else:
-            lines.append(f"🔒 {name} — {cost} پول، {days} روز (قدرت {power})")
-            rows.append([InlineKeyboardButton(
-                f"🔬 تحقیق {name} ({cost}💰)",
-                callback_data=f"res_{name}"
-            )])
+            lines.append(f"🔒 {name} — {cost} پول (قدرت {power})")
+            rows.append([InlineKeyboardButton(f"🔬 {name} ({cost}💰)", callback_data=f"res_{name}")])
     rows.append([InlineKeyboardButton("🔙 بازگشت", callback_data="menu")])
-
     await q.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(rows), parse_mode="Markdown")
 
 
@@ -552,82 +639,3 @@ async def cb_research(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     g = get_game(uid)
     tree = RESEARCH.get(g["country"], [])
     for n, cost, days, power in tree:
-        if n == name:
-            if g["money"] < cost:
-                await q.answer("❌ پول کافی نداری.", show_alert=True)
-                return
-            unlocked = json.loads(g["research"] or "[]")
-            if name in unlocked:
-                await q.answer("قبلاً تحقیق شده.", show_alert=True)
-                return
-            unlocked.append(name)
-            save_game(uid, money=g["money"]-cost, research=json.dumps(unlocked))
-            await q.answer(f"✅ {name} تحقیق شد!", show_alert=True)
-            await cb_res(update, ctx)
-            return
-
-
-async def cb_proj(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    g = get_game(q.from_user.id)
-    completed = json.loads(g["completed_projects"] or "[]")
-    building = json.loads(g["projects"] or "[]")
-
-    lines = ["🏗️ *پروژه‌های ملی*\n"]
-    rows = []
-    for key, p in PROJECTS.items():
-        if key in completed:
-            lines.append(f"✅ {p['name']} (تکمیل)")
-        else:
-            building_now = any(b.split(":")[0] == key for b in building)
-            if building_now:
-                lines.append(f"🔨 {p['name']} (در حال ساخت)")
-            else:
-                lines.append(f"🆕 {p['name']} — {p['money']}💰 + {p['steel']}⚙️ ({p['days']} روز)")
-                rows.append([InlineKeyboardButton(
-                    f"🏗️ ساخت {p['name']}",
-                    callback_data=f"build_{key}"
-                )])
-    rows.append([InlineKeyboardButton("🔙 بازگشت", callback_data="menu")])
-    await q.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(rows), parse_mode="Markdown")
-
-
-async def cb_build(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    uid = q.from_user.id
-    key = q.data.replace("build_", "")
-    g = get_game(uid)
-    p = PROJECTS[key]
-    if g["money"] < p["money"] or g["steel"] < p["steel"]:
-        await q.answer(f"❌ نیاز: {p['money']} پول + {p['steel']} فولاد", show_alert=True)
-        return
-    projects = json.loads(g["projects"] or "[]")
-    if any(x.split(":")[0] == key for x in projects):
-        await q.answer("در حال ساخت است.", show_alert=True)
-        return
-    projects.append(f"{key}:{p['days']}")
-    save_game(uid, money=g["money"]-p["money"], steel=g["steel"]-p["steel"], projects=json.dumps(projects))
-    await q.answer(f"✅ شروع ساخت {p['name']} ({p['days']} روز)", show_alert=True)
-    await cb_proj(update, ctx)
-
-
-async def cb_dip(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    g = get_game(q.from_user.id)
-    text = (
-        f"🤝 *دیپلماسی*\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"متحدین: {', '.join(json.loads(g['allies'] or '[]')) or 'هیچ'}\n"
-        f"در جنگ با: {', '.join(json.loads(g['wars'] or '[]')) or 'هیچ'}\n"
-        f"تحریم‌شده توسط: {', '.join(json.loads(g['sanctions'] or '[]')) or 'هیچ'}\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"⚠️ دیپلماسی پیشرفته در نسخه بعدی اضافه می‌شه."
-    )
-    await q.edit_message_text(text, reply_markup=back_kb(), parse_mode="Markdown")
-
-
-async def cb_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
