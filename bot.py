@@ -804,7 +804,7 @@ def main():
         print("❌ توکن ربات تنظیم نشده!")
         return
     keep_alive()
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).base_url("https://tapi.bale.ai/bot").build()
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("menu", cmd_menu))
