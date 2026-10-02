@@ -639,3 +639,208 @@ async def cb_research(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     g = get_game(uid)
     tree = RESEARCH.get(g["country"], [])
     for n, cost, days, power in tree:
+        if n == name:
+            if g["money"] < cost:
+                await q.answer("❌ پول کافی نداری.", show_alert=True)
+                return
+            unlocked = json.loads(g["research"] or "[]")
+            if name in unlocked:
+                await q.answer("قبلاً تحقیق شده.", show_alert=True)
+                return
+            unlocked.append(name)
+            save_game(uid, money=g["money"]-cost, research=json.dumps(unlocked))
+            await q.answer(f"✅ {name} تحقیق شد!", show_alert=True)
+            await cb_res(update, ctx)
+            return
+
+
+async def cb_proj(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    g = get_game(q.from_user.id)
+    completed = json.loads(g["completed_projects"] or "[]")
+    building = json.loads(g["projects"] or "[]")
+    lines = ["🏗️ *پروژه‌های ملی*\n"]
+    rows = []
+    for key, p in PROJECTS.items():
+        if key in completed:
+            lines.append(f"✅ {p['name']} (تکمیل)")
+        else:
+            building_now = any(b.split(":")[0] == key for b in building)
+            if building_now:
+                lines.append(f"🔨 {p['name']} (در حال ساخت)")
+            else:
+                lines.append(f"🆕 {p['name']} — {p['money']}💰 + {p['steel']}⚙️ ({p['days']} روز)")
+                rows.append([InlineKeyboardButton(f"🏗️ {p['name']}", callback_data=f"build_{key}")])
+    rows.append([InlineKeyboardButton("🔙 بازگشت", callback_data="menu")])
+    await q.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(rows), parse_mode="Markdown")
+
+
+async def cb_build(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    uid = q.from_user.id
+    key = q.data.replace("build_", "")
+    g = get_game(uid)
+    p = PROJECTS[key]
+    if g["money"] < p["money"] or g["steel"] < p["steel"]:
+        await q.answer(f"❌ نیاز: {p['money']} پول + {p['steel']} فولاد", show_alert=True)
+        return
+    projects = json.loads(g["projects"] or "[]")
+    if any(x.split(":")[0] == key for x in projects):
+        await q.answer("در حال ساخت است.", show_alert=True)
+        return
+    projects.append(f"{key}:{p['days']}")
+    save_game(uid, money=g["money"]-p["money"], steel=g["steel"]-p["steel"], projects=json.dumps(projects))
+    await q.answer(f"✅ شروع ساخت {p['name']}", show_alert=True)
+    await cb_proj(update, ctx)
+
+
+async def cb_dip(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    g = get_game(q.from_user.id)
+    text = (
+        f"🤝 *دیپلماسی*\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"متحدین: {', '.join(json.loads(g['allies'] or '[]')) or 'هیچ'}\n"
+        f"در جنگ با: {', '.join(json.loads(g['wars'] or '[]')) or 'هیچ'}\n"
+        f"تحریم‌شده: {', '.join(json.loads(g['sanctions'] or '[]')) or 'هیچ'}\n\n"
+        f"⚠️ دیپلماسی پیشرفته در نسخه بعدی."
+    )
+    await q.edit_message_text(text, reply_markup=back_kb(), parse_mode="Markdown")
+
+
+async def cb_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "📦 *تجارت*\n\n"
+        "🇸🇪 سوئد: آهن\n"
+        "🇷🇴 رومانی: نفت\n"
+        "🇪🇸 اسپانیا: تنگستن\n"
+        "🇹🇷 ترکیه: کروم\n\n"
+        "⚠️ سیستم تجارت کامل در نسخه بعدی.",
+        reply_markup=back_kb(), parse_mode="Markdown"
+    )
+
+
+async def cb_attack(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    g = get_game(q.from_user.id)
+    enemies = [k for k in COUNTRIES if k != g["country"]]
+    rows = []
+    for e in enemies[:5]:
+        c = COUNTRIES[e]
+        rows.append([InlineKeyboardButton(f"⚔️ {c['flag']} {c['name']}", callback_data=f"atk_{e}")])
+    rows.append([InlineKeyboardButton("🔙 بازگشت", callback_data="menu")])
+    await q.edit_message_text(
+        f"🎯 *هدف حمله:*\n\n⚔️ قدرت حمله تو: {fmt(compute_army_power(g, 'attack'))}",
+        reply_markup=InlineKeyboardMarkup(rows), parse_mode="Markdown"
+    )
+
+
+async def cb_do_attack(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    uid = q.from_user.id
+    g = get_game(uid)
+    my_atk = compute_army_power(g, "attack")
+    enemy_def = random.randint(50, 200)
+    if my_atk > enemy_def:
+        loss = random.randint(0, max(1, g["soldiers"] // 5))
+        save_game(uid, soldiers=max(0, g["soldiers"] - loss))
+        result = f"🏆 *پیروزی!*\n\nحمله: {fmt(my_atk)}\nدفاع: {fmt(enemy_def)}\nتلفات: {loss}"
+    else:
+        loss = random.randint(1, max(2, g["soldiers"] // 3))
+        save_game(uid, soldiers=max(0, g["soldiers"] - loss))
+        result = f"💀 *شکست!*\n\nحمله: {fmt(my_atk)}\nدفاع: {fmt(enemy_def)}\nتلفات: {loss}"
+    await q.edit_message_text(result, reply_markup=back_kb(), parse_mode="Markdown")
+
+
+async def cb_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    g = get_game(q.from_user.id)
+    await q.edit_message_text(render_dashboard(g), reply_markup=back_kb(), parse_mode="Markdown")
+
+
+async def cb_next_turn(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    uid = q.from_user.id
+    result = process_turn(uid)
+    g = get_game(uid)
+    msg = "⏭️ نوبت جدید!\n\n" + render_dashboard(g)
+    if result and result["newly_done"]:
+        names = [PROJECTS[k]["name"] for k in result["newly_done"]]
+        msg = "✅ تکمیل: " + ", ".join(names) + "\n\n" + msg
+    await q.edit_message_text(msg, reply_markup=main_menu_kb(), parse_mode="Markdown")
+
+
+async def cb_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "📖 *راهنما*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "1️⃣ کشور انتخاب کن\n"
+        "2️⃣ منابع تولید می‌شه\n"
+        "3️⃣ ارتش بساز، تحقیق کن\n"
+        "4️⃣ حمله کن\n"
+        "5️⃣ هدف: پیروزی!\n\n"
+        "🔄 «نوبت بعدی» = روز بعد",
+        reply_markup=back_kb(), parse_mode="Markdown"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+#  🚀 main
+# ═══════════════════════════════════════════════════════════════
+def main():
+    init_db()
+    if "توکن" in BOT_TOKEN or not BOT_TOKEN:
+        print("❌ توکن ربات تنظیم نشده!")
+        return
+    keep_alive()
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("menu", cmd_menu))
+
+    # 🔒 هندلر دکمه «عضو شدم»
+    app.add_handler(MessageHandler(
+        filters.TEXT & filters.Regex("^عضو شدم ✅$"),
+        on_joined_check
+    ))
+    # هندلر دکمه «منو»
+    app.add_handler(MessageHandler(
+        filters.TEXT & filters.Regex("^🎮 منو$"),
+        cmd_menu
+    ))
+
+    app.add_handler(CallbackQueryHandler(cb_newgame, pattern="^newgame$"))
+    app.add_handler(CallbackQueryHandler(cb_pick_country, pattern="^pick_"))
+    app.add_handler(CallbackQueryHandler(cb_menu, pattern="^menu$"))
+    app.add_handler(CallbackQueryHandler(cb_eco, pattern="^eco$"))
+    app.add_handler(CallbackQueryHandler(cb_army, pattern="^army$"))
+    app.add_handler(CallbackQueryHandler(cb_buy, pattern="^buy_"))
+    app.add_handler(CallbackQueryHandler(cb_res, pattern="^res$"))
+    app.add_handler(CallbackQueryHandler(cb_research, pattern="^res_"))
+    app.add_handler(CallbackQueryHandler(cb_proj, pattern="^proj$"))
+    app.add_handler(CallbackQueryHandler(cb_build, pattern="^build_"))
+    app.add_handler(CallbackQueryHandler(cb_dip, pattern="^dip$"))
+    app.add_handler(CallbackQueryHandler(cb_trade, pattern="^trade$"))
+    app.add_handler(CallbackQueryHandler(cb_attack, pattern="^attack$"))
+    app.add_handler(CallbackQueryHandler(cb_do_attack, pattern="^atk_"))
+    app.add_handler(CallbackQueryHandler(cb_stats, pattern="^stats$"))
+    app.add_handler(CallbackQueryHandler(cb_next_turn, pattern="^next_turn$"))
+    app.add_handler(CallbackQueryHandler(cb_help, pattern="^help$"))
+
+    print("🎖️ ربات در حال اجراست...")
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
