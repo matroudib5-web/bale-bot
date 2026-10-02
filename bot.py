@@ -27,7 +27,7 @@ from keep_alive import keep_alive
 #  ⚙️ تنظیمات
 # ═══════════════════════════════════════════════════════════════
 # 🔑 توکن ربات بله رو اینجا بذار 👇
-BOT_TOKEN = "توکن_ربات_خودت_رو_اینجا_بذار"
+BOT_TOKEN = "152004939:gjvarQqggvlUKNXdDBoJPx-mTNcNGPBu0k8"
 BALE_API = "https://tapi.bale.ai/bot"
 
 DB_FILE = "ww2_game.db"
