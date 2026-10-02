@@ -4,7 +4,7 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
 # =========================
@@ -16,6 +16,11 @@ BALE_TOKEN = "152004939:gjvarQqggvlUKNXdDBoJPx-mTNcNGPBu0k8"
 CHANNELS = [
     "@ghghgdrh",
     "@Hitlerss1"
+]
+
+CHANNEL_NAMES = [
+    "عضویت در کانال اول",
+    "عضویت در کانال دوم"
 ]
 
 REQUIRED_SUBS = 10
@@ -61,11 +66,6 @@ CREATE TABLE IF NOT EXISTS users (
 conn.commit()
 
 
-def get_user(user_id):
-    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-    return cursor.fetchone()
-
-
 def create_user(user_id, username, first_name, invited_by=None):
     cursor.execute(
         "INSERT OR IGNORE INTO users (user_id, username, first_name, invited_by, joined_at) VALUES (?, ?, ?, ?, ?)",
@@ -80,7 +80,7 @@ def count_invites(user_id):
 
 
 # =========================
-# چک کردن عضویت
+# چک عضویت
 # =========================
 
 async def check_membership(context, user_id):
@@ -96,6 +96,32 @@ async def check_membership(context, user_id):
 
 
 # =========================
+# کیبوردها
+# =========================
+
+def get_join_keyboard():
+    keyboard = []
+    for i, ch in enumerate(CHANNELS):
+        keyboard.append([InlineKeyboardButton(CHANNEL_NAMES[i], url=f"https://ble.ir/{ch.replace('@','')}")])
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_main_keyboard():
+    keyboard = [
+        [KeyboardButton("زیرمجموعه هام👨‍👩‍👧‍👦")],
+        [KeyboardButton("دریافت جایزه💳💸💰💵")]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+
+def get_start_keyboard():
+    keyboard = [
+        [KeyboardButton("عضو شدم✅")]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+
+# =========================
 # /start
 # =========================
 
@@ -105,7 +131,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = user.username or ""
     first_name = user.first_name or ""
 
-    # گرفتن زیرمجموعه‌کننده از لینک استارت
     invited_by = None
     if context.args and len(context.args) > 0:
         try:
@@ -115,33 +140,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     create_user(user_id, username, first_name, invited_by)
 
-    # چک کردن عضویت
     is_member = await check_membership(context, user_id)
 
     if not is_member:
-        keyboard = []
-        for ch in CHANNELS:
-            keyboard.append([InlineKeyboardButton(f"عضو شو در {ch}", url=f"https://ble.ir/{ch.replace('@','')}")])
-        
         await update.message.reply_text(
+            "سلام! 👋\n\n"
             "برای استفاده از ربات، ابتدا در کانال‌های زیر عضو شوید:\n\n"
-            "بعد از عضویت، بنویسید: عضو شدم✅",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            "👇 روی دکمه‌های زیر بزنید و عضو شوید.\n\n"
+            "بعد از عضویت، دکمه‌ی «عضو شدم✅» رو بزنید.",
+            reply_markup=get_join_keyboard()
+        )
+        await update.message.reply_text(
+            "👇",
+            reply_markup=get_start_keyboard()
         )
         return
 
-    # کاربر عضو هست
     bot_username = (await context.bot.get_me()).username
     invite_link = f"https://ble.ir/{bot_username}?start={user_id}"
 
     await update.message.reply_text(
-        f"✅ خوش آمدید {first_name}!\n\n"
+        f"✅ عضویت شما تایید شد!\n\n"
         f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}\n\n"
-        f"📌 هرکس که با لینک شما وارد بات شود و عضو کانال‌ها شود، به عنوان زیرمجموعه ثبت می‌شود.\n\n"
-        f"🎁 با ۱۰ زیرمجموعه، ۳۰ هزار تومان برنده شوید.\n\n"
-        f"دستورات:\n"
-        f"• زیرمجموعه هام👨‍👩‍👧‍👦 → مشاهده تعداد\n"
-        f"• دریافت جایزه💳💸💰💵 → دریافت جایزه"
+        f"📌 هرکس با لینک شما وارد ربات شود و عضو کانال‌ها شود، به عنوان زیرمجموعه ثبت می‌شود.\n\n"
+        f"🎁 با ۱۰ زیرمجموعه، ۳۰ هزار تومان برنده شوید!",
+        reply_markup=get_main_keyboard()
     )
 
 
@@ -157,7 +180,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = user.id
 
-    # عضویت
+    # عضو شدم
     if text == "عضو شدم✅":
         is_member = await check_membership(context, user_id)
         if is_member:
@@ -166,23 +189,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"✅ عضویت شما تایید شد!\n\n"
                 f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}\n\n"
-                f"🎁 با ۱۰ زیرمجموعه، ۳۰ هزار تومان برنده شوید.\n\n"
-                f"دستورات:\n"
-                f"• زیرمجموعه هام👨‍👩‍👧‍👦\n"
-                f"• دریافت جایزه💳💸💰💵"
+                f"📌 هرکس با لینک شما وارد ربات شود و عضو کانال‌ها شود، به عنوان زیرمجموعه ثبت می‌شود.\n\n"
+                f"🎁 با ۱۰ زیرمجموعه، ۳۰ هزار تومان برنده شوید!",
+                reply_markup=get_main_keyboard()
             )
         else:
             await update.message.reply_text(
-                "❌ شما هنوز عضو نشده‌اید.\n"
-                "لطفاً ابتدا در کانال‌ها عضو شوید و دوباره بنویسید: عضو شدم✅"
+                "❌ شما هنوز عضو نشده‌اید.\n\n"
+                "لطفاً ابتدا در کانال‌ها عضو شوید و بعد دکمه‌ی «عضو شدم✅» رو بزنید.",
+                reply_markup=get_join_keyboard()
+            )
+            await update.message.reply_text(
+                "👇",
+                reply_markup=get_start_keyboard()
             )
         return
 
-    # نمایش زیرمجموعه‌ها
+    # زیرمجموعه هام
     if text == "زیرمجموعه هام👨‍👩‍👧‍👦":
         count = count_invites(user_id)
+        bot_username = (await context.bot.get_me()).username
+        invite_link = f"https://ble.ir/{bot_username}?start={user_id}"
+
         await update.message.reply_text(
-            f"👥 زیرمجموعه‌های شما:\n\n{count}/{REQUIRED_SUBS}"
+            f"👥 زیرمجموعه‌های شما:\n\n"
+            f"{count}/{REQUIRED_SUBS}\n\n"
+            f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}",
+            reply_markup=get_main_keyboard()
         )
         return
 
@@ -191,13 +224,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         count = count_invites(user_id)
         if count >= REQUIRED_SUBS:
             await update.message.reply_text(
-                f"🎉 تبریک! شما به {REQUIRED_SUBS} زیرمجموعه رسیدید.\n\n"
-                f"برای دریافت جایزه، به {SUPPORT_ID} پیام دهید."
+                f"🎉 تبریک! شما به {REQUIRED_SUBS} زیرمجموعه رسیدید!\n\n"
+                f"برای دریافت جایزه، به {SUPPORT_ID} پیام دهید.",
+                reply_markup=get_main_keyboard()
             )
         else:
+            bot_username = (await context.bot.get_me()).username
+            invite_link = f"https://ble.ir/{bot_username}?start={user_id}"
             await update.message.reply_text(
-                f"❌ هنوز زیرمجموعه‌های شما کامل نشده.\n"
-                f"تعداد فعلی: {count}/{REQUIRED_SUBS}"
+                f"❌ هنوز زیرمجموعه‌های شما کامل نشده.\n\n"
+                f"تعداد فعلی: {count}/{REQUIRED_SUBS}\n\n"
+                f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}",
+                reply_markup=get_main_keyboard()
             )
         return
 
