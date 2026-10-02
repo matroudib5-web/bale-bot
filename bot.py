@@ -23,7 +23,7 @@ CHANNEL_NAMES = [
     "عضویت در کانال دوم"
 ]
 
-REQUIRED_SUBS = 10
+REQUIRED_SUBS = 20
 SUPPORT_ID = "@KSBR8371250"
 
 DB_NAME = "bot.db"
@@ -163,7 +163,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✅ عضویت شما تایید شد!\n\n"
         f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}\n\n"
         f"📌 هرکس با لینک شما وارد ربات شود و عضو کانال‌ها شود، به عنوان زیرمجموعه ثبت می‌شود.\n\n"
-        f"🎁 با ۱۰ زیرمجموعه، ۳۰ هزار تومان برنده شوید!",
+        f"⚠️ توجه: زیرمجموعه‌های شما باید حتماً در کانال‌ها عضو شوند، وگرنه به عنوان زیرمجموعه حساب نمی‌شوند.\n\n"
+        f"🎁 با ۲۰ زیرمجموعه، ۳۰ هزار تومان برنده شوید!",
         reply_markup=get_main_keyboard()
     )
 
@@ -190,7 +191,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ عضویت شما تایید شد!\n\n"
                 f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}\n\n"
                 f"📌 هرکس با لینک شما وارد ربات شود و عضو کانال‌ها شود، به عنوان زیرمجموعه ثبت می‌شود.\n\n"
-                f"🎁 با ۱۰ زیرمجموعه، ۳۰ هزار تومان برنده شوید!",
+                f"⚠️ توجه: زیرمجموعه‌های شما باید حتماً در کانال‌ها عضو شوند، وگرنه به عنوان زیرمجموعه حساب نمی‌شوند.\n\n"
+                f"🎁 با ۲۰ زیرمجموعه، ۳۰ هزار تومان برنده شوید!",
                 reply_markup=get_main_keyboard()
             )
         else:
@@ -214,7 +216,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"👥 زیرمجموعه‌های شما:\n\n"
             f"{count}/{REQUIRED_SUBS}\n\n"
-            f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}",
+            f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}\n\n"
+            f"⚠️ توجه: زیرمجموعه‌های شما باید حتماً در کانال‌ها عضو شوند، وگرنه به عنوان زیرمجموعه حساب نمی‌شوند.",
             reply_markup=get_main_keyboard()
         )
         return
@@ -234,7 +237,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"❌ هنوز زیرمجموعه‌های شما کامل نشده.\n\n"
                 f"تعداد فعلی: {count}/{REQUIRED_SUBS}\n\n"
-                f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}",
+                f"🔗 لینک زیرمجموعه‌گیری شما:\n{invite_link}\n\n"
+                f"⚠️ توجه: زیرمجموعه‌های شما باید حتماً در کانال‌ها عضو شوند، وگرنه به عنوان زیرمجموعه حساب نمی‌شوند.",
                 reply_markup=get_main_keyboard()
             )
         return
