@@ -1,7 +1,10 @@
 services:
   - type: web
-    name: bale-bot
-    env: python
+    name: ww2-bot
+    runtime: python
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
-    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.5"
