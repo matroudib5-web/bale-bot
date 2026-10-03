@@ -2875,4 +2875,448 @@ async def cb_atom_use(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cb_atom_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    q
+    q = update.callback_query
+    await q.answer()
+    uid = q.from_user.id
+    target = q.data.replace("atom_", "")
+    g = get_game(uid)
+    target_uid = find_player_by_country(target)
+
+    if not target_uid:
+        await q.edit_message_text("❌ بازیکن پیدا نشد.", reply_markup=back_kb())
+        return
+
+    c = COUNTRIES[target]
+    tg = get_game(target_uid)
+
+    # ۵۰٪ آسیب به هدف
+    save_game(target_uid,
+        money=int(tg["money"] * 0.5),
+        food=int(tg["food"] * 0.5),
+        steel=int(tg["steel"] * 0.5),
+        oil=int(tg["oil"] * 0.5),
+        coal=int(tg["coal"] * 0.5),
+        manpower=int(tg["manpower"] * 0.5),
+        soldiers=int(tg["soldiers"] * 0.5),
+        happiness=max(0, tg["happiness"] - 30))
+
+    # عوارض برای خودت
+    save_game(uid,
+        atomic_ready=1,
+        happiness=max(0, g["happiness"] - 30))
+
+    # فعال کردن دسترسی بمب اتم برای همه
+    set_setting("atomic_used", "true")
+
+    result = (
+        f"☢️ *بمب اتم پرتاب شد!*\n\n"
+        f"هدف: {c['flag']} {c['name']}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📉 *آسیب به هدف:*\n"
+        f"• ۵۰٪ پول و منابع\n"
+        f"• ۵۰٪ ارتش\n"
+        f"• ۳۰٪ رضایت\n\n"
+        f"⚠️ *عوارض برای تو:*\n"
+        f"• ۳۰٪ رضایت مردم کم شد\n"
+        f"🌍 رقابت اتمی شروع شد — بقیه کشورها حالا می‌تونن بمب اتم بسازن."
+    )
+
+    await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
+    await q.edit_message_text(
+        "☢️ بمب اتم استفاده شد — بالا ببین ⬆️",
+        reply_markup=back_kb()
+    )
+
+    try:
+        await ctx.bot.send_message(
+            target_uid,
+            f"☢️ *فاجعه!*\n\n"
+            f"بمب اتم روی کشورت پرتاب شد!\n"
+            f"۵۰٪ منابع و ارتشت از بین رفت.",
+            parse_mode="Markdown"
+        )
+    except:
+        pass
+# ═══════════════════════════════════════════════════════════════
+#  👑 ادمین
+# ═══════════════════════════════════════════════════════════════
+async def cmd_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if uid not in ADMIN_IDS:
+        await update.message.reply_text("🚫 دسترسی نداری.")
+        return
+    players = get_active_players()
+    text = f"👑 *پنل ادمین*\n━━━━━━━━━━━━━━━━━━━━━━\n👥 بازیکنان: {len(players)}\n\n"
+    for p in players[:20]:
+        c = COUNTRIES.get(p["country"], {})
+        text += f"{c.get('flag','❓')} [{p['user_id']}] {c.get('name','?')}\n"
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
+async def cmd_give(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if uid not in ADMIN_IDS:
+        return
+    try:
+        _, target, field, amount = update.message.text.split()
+        target = int(target)
+        amount = int(amount)
+    except:
+        await update.message.reply_text(
+            "فرمت: `/give user_id money|steel|oil|coal|food|manpower amount`",
+            parse_mode="Markdown"
+        )
+        return
+    g = get_game(target)
+    if not g:
+        await update.message.reply_text("کاربر پیدا نشد.")
+        return
+    save_game(target, **{field: g[field] + amount})
+    await update.message.reply_text(f"✅ {amount} {field} به [{target}] داده شد.")
+
+
+async def cmd_players(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    players = get_active_players()
+    if not players:
+        await update.message.reply_text("هنوز کسی بازی نکرده.")
+        return
+    text = "🌍 *بازیکنان فعال:*\n━━━━━━━━━━━━━━━━━━━━━━\n"
+    for p in players:
+        c = COUNTRIES.get(p["country"], {})
+        text += f"{c.get('flag','❓')} {c.get('name','?')} — [{p['user_id']}]\n"
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
+async def cmd_country_info(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if uid not in ADMIN_IDS:
+        return
+
+    text_in = update.message.text.strip()
+    if not text_in.startswith("اطلاعات "):
+        return
+
+    country_name = text_in.replace("اطلاعات ", "").strip()
+    target_key = None
+    for k, v in COUNTRIES.items():
+        if v["name"] == country_name:
+            target_key = k
+            break
+
+    if not target_key:
+        await update.message.reply_text("❌ کشور پیدا نشد.")
+        return
+
+    target_uid = find_player_by_country(target_key)
+    if not target_uid:
+        await update.message.reply_text(f"❌ کسی {country_name} رو نگرفته.")
+        return
+
+    tg = get_game(target_uid)
+    c = COUNTRIES[target_key]
+    unit_tanks = json.loads(tg.get("unit_tanks") or "{}")
+    unit_planes = json.loads(tg.get("unit_planes") or "{}")
+    unit_ships = json.loads(tg.get("unit_ships") or "{}")
+
+    lines = [
+        f"🔍 *اطلاعات {c['flag']} {c['name']}*",
+        f"━━━━━━━━━━━━━━━━━━━━━━",
+        f"👤 بازیکن: `{target_uid}`",
+        f"📅 نوبت: {tg['turn']} | تاریخ: {format_game_date(parse_game_date(tg['game_date']))}",
+        f"━━━━━━━━━━━━━━━━━━━━━━",
+        f"💰 پول: {fmt(tg['money'])}",
+        f"🍞 غذا: {fmt(tg['food'])}",
+        f"⚙️ فولاد: {fmt(tg['steel'])}",
+        f"🛢️ نفت: {fmt(tg['oil'])}",
+        f"🪨 زغال: {fmt(tg['coal'])}",
+        f"👥 نیرو: {fmt(tg['manpower'])}",
+        f"━━━━━━━━━━━━━━━━━━━━━━",
+        f"🪖 سرباز: {fmt(tg['soldiers'])}",
+    ]
+    for name, cnt in unit_tanks.items():
+        lines.append(f"🛡️ {name}: {fmt(cnt)}")
+    for name, cnt in unit_planes.items():
+        lines.append(f"✈️ {name}: {fmt(cnt)}")
+    for name, cnt in unit_ships.items():
+        lines.append(f"🚢 {name}: {fmt(cnt)}")
+
+    lines.append(f"━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append(f"😊 رضایت: {tg['happiness']}%  |  💵 مالیات: {tg['tax_rate']}%")
+
+    allies = json.loads(tg["allies"] or "[]")
+    wars = json.loads(tg["wars"] or "[]")
+    allies_names = ", ".join(COUNTRIES[a]["name"] for a in allies if a in COUNTRIES) or "هیچ"
+    wars_names = ", ".join(COUNTRIES[a]["name"] for a in wars if a in COUNTRIES) or "هیچ"
+    lines.append(f"🤝 متحدین: {allies_names}")
+    lines.append(f"⚔️ در جنگ با: {wars_names}")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
+async def cmd_next_turn(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if uid not in ADMIN_IDS:
+        await update.message.reply_text("🚫 فقط ادمین‌ها.")
+        return
+    players = get_active_players()
+    count = 0
+    for p in players:
+        process_turn(p["user_id"])
+        count += 1
+    await update.message.reply_text(f"⏭️ نوبت جدید برای {count} بازیکن اجرا شد.")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  🕐 نوبت خودکار (هر ۱ ساعت)
+# ═══════════════════════════════════════════════════════════════
+async def auto_turn_job(context: ContextTypes.DEFAULT_TYPE):
+    """هر ۱ ساعت اجرا میشه — نوبت همه بازیکنا رو جلو میبره"""
+    players = get_active_players()
+
+    for p in players:
+        result = process_turn(p["user_id"])
+        if not result:
+            continue
+
+        text = (
+            f"📅 *نوبت جدید!*\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🗓️ تاریخ: *{result['date_pretty']}*\n"
+            f"🔢 نوبت: {p['turn'] + 1}\n"
+        )
+
+        if result["events"]:
+            text += "\n📰 *رویدادهای تاریخی:*\n"
+            for ev in result["events"]:
+                text += f"• {ev}\n"
+
+        if result["newly_done"]:
+            text += "\n✅ *پروژه‌های تکمیل‌شده:*\n"
+            for k in result["newly_done"]:
+                p_info = PROJECTS.get(k)
+                if p_info:
+                    text += f"• {p_info['name']}\n"
+                elif k == "atomic_bomb":
+                    text += "• ☢️ *بمب اتم آماده شد!*\n"
+
+        try:
+            await context.bot.send_message(
+                p["user_id"],
+                text,
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📊 آمار", callback_data="stats")],
+                    [InlineKeyboardButton("🎮 منو", callback_data="menu")],
+                ])
+            )
+        except Exception as e:
+            log.warning(f"خطا در ارسال به {p['user_id']}: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  🚀 main
+# ═══════════════════════════════════════════════════════════════
+def main():
+    init_db()
+    ensure_npcs_exist()
+
+    if "توکن" in BOT_TOKEN or not BOT_TOKEN:
+        print("❌ توکن ربات تنظیم نشده!")
+        return
+
+    keep_alive()
+
+    app = Application.builder().token(BOT_TOKEN).base_url(BALE_API).build()
+
+    # ─── Commands ─────────────────────────────────
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("menu", cmd_menu))
+    app.add_handler(CommandHandler("next_turn", cmd_next_turn))
+    app.add_handler(CommandHandler("admin", cmd_admin))
+    app.add_handler(CommandHandler("give", cmd_give))
+    app.add_handler(CommandHandler("players", cmd_players))
+
+    # ─── عضویت اجباری ─────────────────────────────
+    app.add_handler(MessageHandler(
+        filters.TEXT & filters.Regex("^عضو شدم ✅$"),
+        on_joined_check
+    ))
+    app.add_handler(MessageHandler(
+        filters.TEXT & filters.Regex("^🎮 منو$"),
+        cmd_menu
+    ))
+
+    # ─── دستور «اطلاعات [کشور]» برای ادمین ────────
+    app.add_handler(MessageHandler(
+        filters.TEXT & filters.Regex("^اطلاعات "),
+        cmd_country_info
+    ))
+
+    # ─── ConversationHandler: خرید سرباز ──────────
+    buy_soldier_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(buy_soldier_start, pattern="^buy_soldier$")],
+        states={BUY_SOLDIER_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_soldier_qty)]},
+        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
+        per_user=True,
+    )
+    app.add_handler(buy_soldier_conv)
+
+    # ─── ConversationHandler: خرید تانک ───────────
+    buy_tank_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(buy_tank_start, pattern="^buy_tank$"),
+            CallbackQueryHandler(buytank_pick, pattern="^buytank_"),
+        ],
+        states={
+            BUY_TANK_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buytank_qty)],
+        },
+        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(buy_tank_conv)
+
+    # ─── ConversationHandler: خرید هواپیما ────────
+    buy_plane_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(buy_plane_start, pattern="^buy_plane$"),
+            CallbackQueryHandler(buyplane_pick, pattern="^buyplane_"),
+        ],
+        states={
+            BUY_PLANE_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buyplane_qty)],
+        },
+        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(buy_plane_conv)
+
+    # ─── ConversationHandler: خرید کشتی ───────────
+    buy_ship_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(buy_ship_start, pattern="^buy_ship$"),
+            CallbackQueryHandler(buyship_pick, pattern="^buyship_"),
+        ],
+        states={
+            BUY_SHIP_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buyship_qty)],
+        },
+        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(buy_ship_conv)
+
+    # ─── ConversationHandler: مالیات ──────────────
+    tax_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(cb_tax, pattern="^tax$")],
+        states={TAX_INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, tax_set)]},
+        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
+        per_user=True,
+    )
+    app.add_handler(tax_conv)
+
+    # ─── ConversationHandler: حمله ────────────────
+    attack_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(cb_attack, pattern="^attack$")],
+        states={
+            ATTACK_TARGET: [
+                CallbackQueryHandler(attack_target, pattern="^atk_"),
+            ],
+            ATTACK_FORCE: [
+                CallbackQueryHandler(attack_pick_unit, pattern="^af_(soldiers|tanks|planes|ships)$"),
+                CallbackQueryHandler(af_back, pattern="^af_back$"),
+                CallbackQueryHandler(attack_go, pattern="^af_go$"),
+            ],
+            ATTACK_QTY: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, attack_qty),
+                CallbackQueryHandler(af_back, pattern="^af_back$"),
+            ],
+        },
+        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(attack_conv)
+
+    # ─── ConversationHandler: مذاکره ──────────────
+    talk_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cb_dip_confirm, pattern="^dipt_talk_"),
+            CallbackQueryHandler(cb_talk_reply, pattern="^talkreply_"),
+        ],
+        states={DIP_TALK_MSG: [MessageHandler(filters.TEXT & ~filters.COMMAND, dip_talk_send)]},
+        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(talk_conv)
+
+    # ─── ConversationHandler: تجارت ───────────────
+    trade_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(cb_trade, pattern="^trade$")],
+        states={
+            TRADE_PICK_TYPE: [CallbackQueryHandler(trade_pick_type, pattern="^tp_")],
+            TRADE_PICK_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, trade_pick_amount)],
+            TRADE_PICK_WANT: [CallbackQueryHandler(trade_pick_want, pattern="^tw_")],
+        },
+        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(trade_conv)
+
+    # ─── Callbacks عمومی ──────────────────────────
+    app.add_handler(CallbackQueryHandler(cb_newgame, pattern="^newgame$"))
+    app.add_handler(CallbackQueryHandler(cb_pick_country, pattern="^pick_"))
+    app.add_handler(CallbackQueryHandler(cb_menu, pattern="^menu$"))
+    app.add_handler(CallbackQueryHandler(cb_eco, pattern="^eco$"))
+    app.add_handler(CallbackQueryHandler(cb_army, pattern="^army$"))
+    app.add_handler(CallbackQueryHandler(cb_res, pattern="^res$"))
+    app.add_handler(CallbackQueryHandler(cb_research, pattern="^res_"))
+    app.add_handler(CallbackQueryHandler(cb_proj, pattern="^proj$"))
+    app.add_handler(CallbackQueryHandler(cb_build, pattern="^build_"))
+    app.add_handler(CallbackQueryHandler(cb_internal, pattern="^internal$"))
+    app.add_handler(CallbackQueryHandler(cb_speech, pattern="^speech$"))
+    app.add_handler(CallbackQueryHandler(cb_suppress, pattern="^suppress$"))
+    app.add_handler(CallbackQueryHandler(cb_spy, pattern="^spy$"))
+    app.add_handler(CallbackQueryHandler(cb_spy_do, pattern="^spy_"))
+    app.add_handler(CallbackQueryHandler(cb_stats, pattern="^stats$"))
+    app.add_handler(CallbackQueryHandler(cb_help, pattern="^help$"))
+    app.add_handler(CallbackQueryHandler(cb_colony, pattern="^colony_"))
+
+    # ─── دیپلماسی ─────────────────────────────────
+    app.add_handler(CallbackQueryHandler(cb_dip, pattern="^dip$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_ally, pattern="^dip_ally$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_peace, pattern="^dip_peace$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_war, pattern="^dip_war$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_nap, pattern="^dip_nap$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_tech, pattern="^dip_tech$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_trade, pattern="^dip_trade$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_talk, pattern="^dip_talk$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_accept, pattern="^dipacc_"))
+    app.add_handler(CallbackQueryHandler(cb_dip_reject, pattern="^diprej_"))
+    app.add_handler(CallbackQueryHandler(cb_dip_confirm, pattern="^dipt_(?!talk_)"))
+
+    # ─── تجارت ────────────────────────────────────
+    app.add_handler(CallbackQueryHandler(cb_trade_send, pattern="^tt_"))
+    app.add_handler(CallbackQueryHandler(cb_trade_accept, pattern="^tradeacc_"))
+    app.add_handler(CallbackQueryHandler(cb_trade_reject, pattern="^traderej_"))
+
+    # ─── بمب اتم ──────────────────────────────────
+    app.add_handler(CallbackQueryHandler(cb_atom_use, pattern="^atom_use$"))
+    app.add_handler(CallbackQueryHandler(cb_atom_target, pattern="^atom_"))
+
+    # ─── JobQueue: نوبت خودکار هر ۱ ساعت ──────────
+    if app.job_queue:
+        app.job_queue.run_repeating(auto_turn_job, interval=3600, first=120)
+        print("⏰ نوبت خودکار فعال شد (هر ۱ ساعت)")
+
+    print("🎖️ ربات جنگ جهانی دوم در حال اجراست...")
+    print(f"📅 شروع: ۱ سپتامبر ۱۹۳۹")
+    print(f"🏁 پایان: ۲ سپتامبر ۱۹۴۵")
+    print(f"⏰ هر نوبت: ۳ روز بازی | هر ۱ ساعت واقعی")
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
