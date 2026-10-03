@@ -1111,7 +1111,6 @@ async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     key = q.data.replace("pick_", "")
     c = COUNTRIES[key]
 
-    # چک کن کسی قبلاً این کشور رو نگرفته
     existing = find_player_by_country(key)
     if existing and existing != uid:
         await q.answer(f"❌ {c['name']} قبلاً انتخاب شده!", show_alert=True)
@@ -1119,11 +1118,17 @@ async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     start_new_game(uid, key)
     g = get_game(uid)
-    await q.edit_message_text(
+
+    await q.message.reply_text(
         f"✅ کشور انتخاب شد: {c['flag']} *{c['name']}*\n\n"
         f"{render_dashboard(g)}\n\n"
         f"از اینجا بازی شروع میشه!",
         reply_markup=main_menu_kb(),
+        parse_mode="Markdown"
+    )
+    await q.edit_message_text(
+        f"🎖️ *بازی شروع شد!*\n"
+        f"کشورت: {c['flag']} {c['name']}",
         parse_mode="Markdown"
     )
 
@@ -1327,8 +1332,17 @@ async def cb_speech(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     save_game(uid, money=g["money"] - 100, speech_turns_left=5)
-    await q.answer("✅ سخنرانی شروع شد! +۲ رضایت در هر نوبت (۵ نوبت)", show_alert=True)
-    await cb_internal(update, ctx)
+
+    await q.message.reply_text(
+        "📢 سخنرانی رهبر شروع شد!\n"
+        "اثرش در ۵ نوبت آینده ظاهر میشه (+۲ رضایت هر نوبت).",
+        reply_markup=main_menu_kb(),
+        parse_mode="Markdown"
+    )
+    await q.edit_message_text(
+        "📢 سخنرانی شروع شد — بالا ببین ⬆️",
+        reply_markup=back_kb()
+    )
 
 
 async def cb_suppress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1344,15 +1358,22 @@ async def cb_suppress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.answer("❌ ۵۰ پول لازمه.", show_alert=True)
         return
 
-    new_hap = max(0, g["happiness"] - 10 + 10)  # -۱۰ نارضایتی
     save_game(uid,
         money=g["money"] - 50,
         happiness=min(100, g["happiness"] + 10),
         suppress_cooldown=3,
         suppress_count=(g.get("suppress_count") or 0) + 1)
-    await q.answer("🚔 سرکوب شد! +۱۰ رضایت (ولی بعد ۳ نوبت -۵ پایه)", show_alert=True)
-    await cb_internal(update, ctx)
 
+    await q.message.reply_text(
+        "🚔 سرکوب شد!\n"
+        "+۱۰ رضایت فوری (ولی بعد ۳ نوبت -۵ رضایت پایه)",
+        reply_markup=main_menu_kb(),
+        parse_mode="Markdown"
+    )
+    await q.edit_message_text(
+        "🚔 سرکوب شد — بالا ببین ⬆️",
+        reply_markup=back_kb()
+    )
 
 # ═══════════════════════════════════════════════════════════════
 #  ⚔️ ارتش
@@ -1844,12 +1865,16 @@ async def cb_proj(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     lines = ["🏗️ *پروژه‌های ملی*\n"]
     rows = []
-
-    # بمب اتم — فقط آلمان و آمریکا
-    atomic_turn = turn_to_atomic_date()
-    atomic_shown = False
-    if g["country"] in ("usa", "germany") and g["turn"] >= atomic_turn:
-        if "atomic_bomb" not in completed:
+# بمب اتم — آلمان و آمریکا از نوبت ~۳۵۹، بقیه بعد از اولین استفاده
+atomic_turn = turn_to_atomic_date()
+atomic_used = get_setting("atomic_used", "false") == "true"
+can_build_atom = False
+if g["country"] in ("usa", "germany") and g["turn"] >= atomic_turn:
+    can_build_atom = True
+elif atomic_used and g["turn"] >= atomic_turn:
+    can_build_atom = True
+atomic_shown = False
+if can_build_atom:
             atomic_shown = True
             building_now = any(x.split(":")[0] == "atomic_bomb" for x in building)
             if building_now:
@@ -2257,7 +2282,11 @@ async def attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 [menu_btn()],
             ])
 
-        await q.edit_message_text(result, reply_markup=kb, parse_mode="Markdown")
+	await q.message.reply_text(result, reply_markup=kb, parse_mode="Markdown")
+await q.edit_message_text(
+    "🎯 نتیجه حمله — بالا ببین ⬆️",
+    reply_markup=back_kb()
+)
 
     else:
         # شکست
@@ -2294,7 +2323,12 @@ async def attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             f"دفاع دشمن: {fmt(enemy_def)}\n\n"
             f"تلفات سنگین:\n🪖 {losses.get('soldiers',0)}  🛡️ {losses.get('tanks',0)}  ✈️ {losses.get('planes',0)}  🚢 {losses.get('ships',0)}"
         )
-        await q.edit_message_text(result, reply_markup=back_kb(), parse_mode="Markdown")
+        
+        await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
+await q.edit_message_text(
+    "💀 نتیجه حمله — بالا ببین ⬆️",
+    reply_markup=back_kb()
+)
 
     return ConversationHandler.END
 
@@ -2310,10 +2344,17 @@ async def cb_colony(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         colonies.append(target)
     save_game(uid, colonies=json.dumps(colonies))
     c = COUNTRIES[target]
-    await q.edit_message_text(
+
+    await q.message.reply_text(
         f"🏝️ {c['flag']} {c['name']} مستعمره شد!\n\n+۵۰٪ تولیدش به تو می‌رسه.",
         reply_markup=main_menu_kb(),
         parse_mode="Markdown"
+    )
+    await q.edit_message_text(
+        f"🏝️ {c['name']} مستعمره شد — بالا ببین ⬆️",
+        reply_markup=back_kb()
+    )
+    
 )
 # ═══════════════════════════════════════════════════════════════
 #  🕵️ جاسوسی
@@ -2394,7 +2435,11 @@ async def cb_spy_do(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         else:
             result = f"✅ *موفق!*\n\nاطلاعات {COUNTRIES[target]['name']} به دست اومد."
 
-    await q.edit_message_text(result, reply_markup=back_kb(), parse_mode="Markdown")
+await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
+await q.edit_message_text(
+    "🕵️ نتیجه جاسوسی — بالا ببین ⬆️",
+    reply_markup=back_kb()
+)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -2533,11 +2578,16 @@ async def cb_dip_confirm(update, ctx):
         if g["country"] not in t_wars:
             t_wars.append(g["country"])
             save_game(target_uid, wars=json.dumps(t_wars))
-        await q.edit_message_text(
-            f"⚔️ *جنگ اعلام شد!*\n\n"
-            f"{COUNTRIES[g['country']]['flag']} {COUNTRIES[g['country']]['name']} "
-            f"به {c['flag']} {c['name']} اعلام جنگ کرد.",
-            reply_markup=back_kb(), parse_mode="Markdown"
+await q.message.reply_text(
+    f"⚔️ *جنگ اعلام شد!*\n\n"
+    f"{COUNTRIES[g['country']]['flag']} {COUNTRIES[g['country']]['name']} "
+    f"به {c['flag']} {c['name']} اعلام جنگ کرد.",
+    reply_markup=back_kb(), parse_mode="Markdown"
+)
+await q.edit_message_text(
+    f"⚔️ جنگ با {c['name']} اعلام شد — بالا ببین ⬆️",
+    reply_markup=back_kb()
+)
         )
         try:
             await ctx.bot.send_message(
@@ -2832,13 +2882,15 @@ async def cb_trade_send(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("❌ رد", callback_data=f"traderej_{uid}")],
             ])
         )
-        await q.edit_message_text(
-            f"📤 پیشنهاد به {c['flag']} {c['name']} فرستاده شد.",
-            reply_markup=back_kb(), parse_mode="Markdown"
-        )
-    except Exception as e:
-        log.warning(f"خطا: {e}")
-        await q.edit_message_text("❌ خطا.", reply_markup=back_kb())
+await q.message.reply_text(
+    f"📤 پیشنهاد تجاری به {c['flag']} {c['name']} فرستاده شد.\n"
+    f"منتظر پاسخ باش.",
+        reply_markup=back_kb(), parse_mode="Markdown"
+)
+await q.edit_message_text(
+    f"📤 پیشنهاد به {c['name']} — بالا ببین ⬆️",
+    reply_markup=back_kb()
+)
 
 
 async def cb_trade_accept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -2930,19 +2982,44 @@ async def cb_atom_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     c = COUNTRIES[target]
-    # نابود کردن کامل
+    tg = get_game(target_uid)
+
+    # ۵۰٪ آسیب به هدف
     save_game(target_uid,
-        money=0, food=0, steel=0, oil=0, coal=0, manpower=0,
-        soldiers=0, tanks=0, planes=0, ships=0,
-        unit_tanks='{}', unit_planes='{}', unit_ships='{}',
-        happiness=0, war_active=0)
+        money=int(tg["money"] * 0.5),
+        food=int(tg["food"] * 0.5),
+        steel=int(tg["steel"] * 0.5),
+        oil=int(tg["oil"] * 0.5),
+        coal=int(tg["coal"] * 0.5),
+        manpower=int(tg["manpower"] * 0.5),
+        soldiers=int(tg["soldiers"] * 0.5),
+        happiness=max(0, tg["happiness"] - 30))
 
-    save_game(uid, atomic_ready=1)
+    # عوارض برای خودت
+    save_game(uid,
+        atomic_ready=1,
+        happiness=max(0, g["happiness"] - 30))
 
+    # فعال کردن دسترسی بمب اتم برای همه
+    set_setting("atomic_used", "true")
+
+    result = (
+        f"☢️ *بمب اتم پرتاب شد!*\n\n"
+        f"هدف: {c['flag']} {c['name']}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📉 *آسیب به هدف:*\n"
+        f"• ۵۰٪ پول و منابع\n"
+        f"• ۵۰٪ ارتش\n"
+        f"• ۳۰٪ رضایت\n\n"
+        f"⚠️ *عوارض برای تو:*\n"
+        f"• ۳۰٪ رضایت مردم کم شد\n"
+        f"🌍 رقابت اتمی شروع شد — بقیه کشورها حالا می‌تونن بمب اتم بسازن."
+    )
+
+    await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
     await q.edit_message_text(
-        f"☢️ *{c['flag']} {c['name']} نابود شد!*\n\n"
-        f"بمب اتم پرتاب شد و تمام زیرساخت‌های {c['name']} از بین رفت.",
-        reply_markup=back_kb(), parse_mode="Markdown"
+        f"☢️ بمب اتم استفاده شد — بالا ببین ⬆️",
+        reply_markup=back_kb()
     )
 
     try:
@@ -2950,7 +3027,7 @@ async def cb_atom_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             target_uid,
             f"☢️ *فاجعه!*\n\n"
             f"بمب اتم روی کشورت پرتاب شد!\n"
-            f"تمام زیرساخت‌ها و ارتشت نابود شد.",
+            f"۵۰٪ منابع و ارتشت از بین رفت.",
             parse_mode="Markdown"
         )
     except: pass
