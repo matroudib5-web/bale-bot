@@ -2732,4 +2732,71 @@ def main():
 
 
 if __name__ == "__main__":
+async def cb_dip_confirm(update, ctx):
+    q = update.callback_query
+    await q.answer()
+    uid = q.from_user.id
+    parts = q.data.split("_", 2)
+    kind = parts[1]
+    target_key = parts[2]
+    g = get_game(uid)
+    c = COUNTRIES[target_key]
+    target_uid = find_player_by_country(target_key)
+    if not target_uid or is_npc(target_uid):
+        await q.edit_message_text(f"🤖 {c['name']} بازیکن نداره.", reply_markup=back_kb())
+        return
+    if kind == "war":
+        wars = json.loads(g["wars"] or "[]")
+        if target_key not in wars:
+            wars.append(target_key)
+            save_game(uid, wars=json.dumps(wars))
+        tg = get_game(target_uid)
+        t_wars = json.loads(tg["wars"] or "[]")
+        if g["country"] not in t_wars:
+            t_wars.append(g["country"])
+            save_game(target_uid, wars=json.dumps(t_wars))
+        await q.message.reply_text(
+            f"⚔️ *جنگ اعلام شد!*\n\n"
+            f"{COUNTRIES[g['country']]['flag']} {COUNTRIES[g['country']]['name']} "
+            f"به {c['flag']} {c['name']} اعلام جنگ کرد.",
+            reply_markup=back_kb(), parse_mode="Markdown"
+        )
+        await q.edit_message_text(f"⚔️ جنگ با {c['name']} اعلام شد — بالا ببین ⬆️", reply_markup=back_kb())
+        try:
+            await ctx.bot.send_message(
+                target_uid,
+                f"⚔️ *جنگ!*\n\n{COUNTRIES[g['country']]['flag']} {COUNTRIES[g['country']]['name']} به تو اعلام جنگ کرد!",
+                parse_mode="Markdown"
+            )
+        except:
+            pass
+        return
+    if kind == "talk":
+        ctx.user_data["talk_target"] = target_uid
+        ctx.user_data["talk_country"] = target_key
+        await q.edit_message_text(
+            f"💬 *مذاکره با {c['flag']} {c['name']}*\n\nپیامت رو بنویس:",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="dip")]]),
+            parse_mode="Markdown"
+        )
+        return DIP_TALK_MSG
+    try:
+        await ctx.bot.send_message(
+            target_uid,
+            f"📩 *درخواست دیپلماتیک*\n\nاز: {COUNTRIES[g['country']]['flag']} {COUNTRIES[g['country']]['name']}\nنوع: {DIP_TYPES[kind]}\n\nقبول می‌کنی؟",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ قبول", callback_data=f"dipacc_{kind}_{uid}")],
+                [InlineKeyboardButton("❌ رد", callback_data=f"diprej_{kind}_{uid}")],
+            ])
+        )
+        await q.edit_message_text(
+            f"📤 درخواست *{DIP_TYPES[kind]}* به {c['flag']} {c['name']} فرستاده شد.",
+            reply_markup=back_kb(), parse_mode="Markdown"
+        )
+    except Exception as e:
+        log.warning(f"خطا: {e}")
+        await q.edit_message_text("❌ خطا در ارسال.", reply_markup=back_kb())
+
+
     main()
