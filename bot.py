@@ -1056,11 +1056,10 @@ async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     start_new_game(uid, key)
     g = get_game(uid)
 
-    await ctx.bot.send_message(
-        chat_id=uid,
-        text=f"✅ کشور انتخاب شد: {c['flag']} *{c['name']}*\n\n"
-             f"{render_dashboard(g)}\n\n"
-             f"از اینجا بازی شروع میشه!",
+    await q.edit_message_text(
+        f"✅ کشور انتخاب شد: {c['flag']} *{c['name']}*\n\n"
+        f"{render_dashboard(g)}\n\n"
+        f"از اینجا بازی شروع میشه!",
         reply_markup=main_menu_kb(),
         parse_mode="Markdown"
     )
