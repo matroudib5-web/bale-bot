@@ -1027,9 +1027,13 @@ async def on_joined_check(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════════════════════════════════════════════
 async def cb_newgame(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
-    await q.edit_message_text(
-        "🌍 *کشورت رو انتخاب کن:*\n\n🟢 آسان  |  🟡 متوسط  |  🔴 سخت",
+    try:
+        await q.answer()
+    except:
+        pass
+    await ctx.bot.send_message(
+        chat_id=q.from_user.id,
+        text="🌍 *کشورت رو انتخاب کن:*\n\n🟢 آسان  |  🟡 متوسط  |  🔴 سخت",
         reply_markup=countries_kb(),
         parse_mode="Markdown"
     )
@@ -1056,24 +1060,29 @@ async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     start_new_game(uid, key)
     g = get_game(uid)
 
-    await q.edit_message_text(
+    await smart_send(q, ctx,
         f"✅ کشور انتخاب شد: {c['flag']} *{c['name']}*\n\n"
         f"{render_dashboard(g)}\n\n"
         f"از اینجا بازی شروع میشه!",
-        reply_markup=main_menu_kb(),
-        parse_mode="Markdown"
+        main_menu_kb()
     )
+
+
 
 
 async def cb_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
     if not g:
-        await q.edit_message_text("بازی پیدا نشد. /start رو بزن.")
+        await ctx.bot.send_message(chat_id=q.from_user.id, text="بازی پیدا نشد. /start رو بزن.")
         return
-    await q.edit_message_text(
-        render_dashboard(g),
+    await ctx.bot.send_message(
+        chat_id=q.from_user.id,
+        text=render_dashboard(g),
         reply_markup=main_menu_kb(),
         parse_mode="Markdown"
     )
@@ -3276,6 +3285,20 @@ def main():
     print("🏁 پایان: ۲ سپتامبر ۱۹۴۵")
     print("⏰ هر نوبت: ۳ روز بازی | هر ۱ ساعت واقعی")
     app.run_polling()
+
+async def smart_send(q, ctx, text, kb=None):
+    try:
+        await q.edit_message_text(text, reply_markup=kb, parse_mode="Markdown")
+    except:
+        try:
+            await ctx.bot.send_message(chat_id=q.from_user.id, text=text, reply_markup=kb, parse_mode="Markdown")
+        except:
+            pass
+
+
+def main():
+    init_db()
+    ...
 
 
 if __name__ == "__main__":
