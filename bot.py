@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-🎖️ ربات بازی جنگ جهانی دوم — نسخه نهایی (Reply Keyboard)
+🎖️ ربات بازی جنگ جهانی دوم — نسخه نهایی (Reply Keyboard — بدون NPC)
 """
 
 import os
@@ -49,55 +49,43 @@ log = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════
-#  🌍 کشورها (۱۲ کشور — آمار ۱۹۳۹)
+#  🌍 کشورها (۱۲ کشور)
 # ═══════════════════════════════════════════════════════════════
 COUNTRIES = {
     "germany": {"flag": "🇩🇪", "name": "آلمان", "capital": "برلین",
-        "difficulty": "🟡 متوسط",
         "money": 384, "food": 200, "steel": 23, "oil": 1, "coal": 24, "manpower": 80,
         "neighbors": ["france", "poland", "italy", "ussr"]},
     "uk": {"flag": "🇬🇧", "name": "انگلیس", "capital": "لندن",
-        "difficulty": "🟡 متوسط",
         "money": 287, "food": 180, "steel": 13, "oil": 1, "coal": 14, "manpower": 50,
         "neighbors": []},
     "usa": {"flag": "🇺🇸", "name": "آمریکا", "capital": "واشینگتن",
-        "difficulty": "🟢 آسان",
         "money": 869, "food": 450, "steel": 51, "oil": 20, "coal": 21, "manpower": 130,
         "neighbors": []},
     "ussr": {"flag": "🇷🇺", "name": "شوروی", "capital": "مسکو",
-        "difficulty": "🟢 آسان",
         "money": 366, "food": 300, "steel": 19, "oil": 3, "coal": 6, "manpower": 170,
         "neighbors": ["germany", "poland", "china", "japan"]},
     "france": {"flag": "🇫🇷", "name": "فرانسه", "capital": "پاریس",
-        "difficulty": "🔴 سخت",
         "money": 199, "food": 150, "steel": 6, "oil": 0, "coal": 5, "manpower": 45,
         "neighbors": ["germany", "italy"]},
     "japan": {"flag": "🇯🇵", "name": "ژاپن", "capital": "توکیو",
-        "difficulty": "🔴 سخت",
         "money": 184, "food": 120, "steel": 6, "oil": 0, "coal": 2, "manpower": 70,
         "neighbors": ["china", "ussr"]},
     "italy": {"flag": "🇮🇹", "name": "ایتالیا", "capital": "رم",
-        "difficulty": "🔴 سخت",
         "money": 151, "food": 110, "steel": 2, "oil": 0, "coal": 0, "manpower": 40,
         "neighbors": ["germany", "france"]},
     "china": {"flag": "🇨🇳", "name": "چین", "capital": "چونگ‌کینگ",
-        "difficulty": "🔴 سخت",
         "money": 120, "food": 250, "steel": 1, "oil": 0, "coal": 3, "manpower": 200,
         "neighbors": ["ussr", "japan"]},
     "poland": {"flag": "🇵🇱", "name": "لهستان", "capital": "ورشو",
-        "difficulty": "🔴 سخت",
         "money": 80, "food": 100, "steel": 2, "oil": 0, "coal": 4, "manpower": 35,
         "neighbors": ["germany", "ussr"]},
     "canada": {"flag": "🇨🇦", "name": "کانادا", "capital": "اتاوا",
-        "difficulty": "🟢 آسان",
         "money": 110, "food": 180, "steel": 5, "oil": 2, "coal": 6, "manpower": 25,
         "neighbors": []},
     "australia": {"flag": "🇦🇺", "name": "استرالیا", "capital": "کانبرا",
-        "difficulty": "🟢 آسان",
         "money": 95, "food": 160, "steel": 3, "oil": 0, "coal": 4, "manpower": 20,
         "neighbors": []},
     "brazil": {"flag": "🇧🇷", "name": "برزیل", "capital": "ریو",
-        "difficulty": "🟢 آسان",
         "money": 75, "food": 200, "steel": 2, "oil": 0, "coal": 1, "manpower": 60,
         "neighbors": []},
 }
@@ -235,7 +223,6 @@ SUPPLY = {
 }
 
 SHIP_CAPACITY = 20
-NPC_ID_START = -1000000
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -292,7 +279,6 @@ def init_db():
             percentage  INTEGER DEFAULT 0
         )
     """)
-    c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('war_open', 'true')")
     c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('atomic_used', 'false')")
     conn.commit()
     conn.close()
@@ -304,7 +290,7 @@ def db():
     return conn
 
 
-def get_setting(key, default="true"):
+def get_setting(key, default="false"):
     conn = db()
     row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
     conn.close()
@@ -337,13 +323,18 @@ def save_game(user_id, **fields):
 
 
 def find_player_by_country(country_key):
+    """فقط بازیکن‌های واقعی (user_id > 0)"""
     conn = db()
-    row = conn.execute("SELECT user_id FROM games WHERE country=?", (country_key,)).fetchone()
+    row = conn.execute(
+        "SELECT user_id FROM games WHERE country=? AND user_id > 0",
+        (country_key,)
+    ).fetchone()
     conn.close()
     return row["user_id"] if row else None
 
 
 def get_active_players(exclude_uid=None):
+    """فقط بازیکن‌های واقعی"""
     conn = db()
     rows = conn.execute(
         "SELECT user_id, country FROM games WHERE user_id > 0 ORDER BY country"
@@ -355,6 +346,14 @@ def get_active_players(exclude_uid=None):
             continue
         result.append({"user_id": r["user_id"], "country": r["country"]})
     return result
+
+
+def get_taken_countries():
+    """کشورهایی که بازیکن واقعی دارن"""
+    conn = db()
+    rows = conn.execute("SELECT country FROM games WHERE user_id > 0").fetchall()
+    conn.close()
+    return {r["country"] for r in rows}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -555,42 +554,6 @@ def compute_total_units(g):
 
 def fmt(n):
     return f"{n:,}"
-
-
-# ═══════════════════════════════════════════════════════════════
-#  🤖 NPC
-# ═══════════════════════════════════════════════════════════════
-def ensure_npcs_exist():
-    conn = db()
-    existing = conn.execute("SELECT country FROM games WHERE user_id > 0").fetchall()
-    taken = {r["country"] for r in existing}
-    conn.close()
-
-    for c_key in COUNTRIES:
-        if c_key in taken:
-            continue
-        conn = db()
-        row = conn.execute("SELECT user_id FROM games WHERE country=? AND user_id < 0", (c_key,)).fetchone()
-        conn.close()
-        if row:
-            continue
-        npc_id = NPC_ID_START - abs(hash(c_key)) % 100000
-        c = COUNTRIES[c_key]
-        conn = db()
-        conn.execute("""
-            INSERT OR IGNORE INTO games (user_id, country, turn, game_date,
-                money, food, steel, oil, coal, manpower,
-                last_turn, created_at)
-            VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (npc_id, c_key, START_DATE,
-              c["money"], c["food"], c["steel"], c["oil"], c["coal"], c["manpower"],
-              datetime.utcnow().isoformat(), datetime.utcnow().isoformat()))
-        conn.commit()
-        conn.close()
-
-
-def is_npc(user_id):
-    return user_id < 0
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -828,14 +791,20 @@ def main_menu_reply():
 
 
 def country_reply():
-    return ReplyKeyboardMarkup([
-        [KeyboardButton("🇩🇪 آلمان"), KeyboardButton("🇬🇧 انگلیس")],
-        [KeyboardButton("🇺🇸 آمریکا"), KeyboardButton("🇷🇺 شوروی")],
-        [KeyboardButton("🇫🇷 فرانسه"), KeyboardButton("🇯🇵 ژاپن")],
-        [KeyboardButton("🇮🇹 ایتالیا"), KeyboardButton("🇨🇳 چین")],
-        [KeyboardButton("🇵🇱 لهستان"), KeyboardButton("🇨🇦 کانادا")],
-        [KeyboardButton("🇦🇺 استرالیا"), KeyboardButton("🇧🇷 برزیل")],
-    ], resize_keyboard=True, one_time_keyboard=True)
+    """کیبورد انتخاب کشور — فقط کشورهای بدون بازیکن"""
+    taken = get_taken_countries()
+    rows = []
+    row = []
+    for key, c in COUNTRIES.items():
+        if key in taken:
+            continue
+        row.append(KeyboardButton(f"{c['flag']} {c['name']}"))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=True)
 
 
 def back_menu_reply():
@@ -971,10 +940,13 @@ def trade_reply():
     ], resize_keyboard=True)
 
 
-def attack_target_reply():
+def attack_target_reply(exclude_uid=None):
+    """فقط بازیکن‌های واقعی (به جز خودم)"""
+    players = get_active_players(exclude_uid=exclude_uid)
     rows = []
     row = []
-    for key, c in COUNTRIES.items():
+    for p in players:
+        c = COUNTRIES[p["country"]]
         row.append(KeyboardButton(f"{c['flag']} {c['name']}"))
         if len(row) == 2:
             rows.append(row)
@@ -986,7 +958,7 @@ def attack_target_reply():
 
 
 # ═══════════════════════════════════════════════════════════════
-#  📊 داشبورد
+#  📊 داشبورد و آمار کامل
 # ═══════════════════════════════════════════════════════════════
 def render_dashboard(g):
     c = COUNTRIES[g["country"]]
@@ -1005,7 +977,7 @@ def render_dashboard(g):
     text += (
         f"💰 پول: {fmt(g['money'])}   😊 رضایت: {g['happiness']}%\n"
         f"🪖 سرباز: {fmt(g['soldiers'])}   💵 مالیات: {g['tax_rate']}%\n\n"
-        f"از دکمه‌های پایین انتخاب کن:"
+        f"از دکمه‌های پایین انتخاب کن 👇"
     )
     return text
 
@@ -1095,7 +1067,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🎖️ به بازی *جنگ جهانی دوم* خوش آمدی!\n\n"
-        "یکی از ۱۲ کشور رو انتخاب کن و از ۱ سپتامبر ۱۹۳۹ شروع کن.\n\n"
+        "یکی از کشورها رو انتخاب کن و از ۱ سپتامبر ۱۹۳۹ شروع کن.\n\n"
         "📅 هر ۱ ساعت = ۱ نوبت خودکار\n"
         "📅 هر نوبت = ۳ روز بازی جلو میره\n"
         "🏁 کل بازی = ۳۰ روز واقعی\n\n"
@@ -1152,7 +1124,7 @@ async def on_joined_check(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 [KeyboardButton("🎮 بازی جدید")],
                 [KeyboardButton("📖 راهنما")],
             ], resize_keyboard=True)
-)
+        )
         # ═══════════════════════════════════════════════════════════════
 #  🎮 هندلر: بازی جدید
 # ═══════════════════════════════════════════════════════════════
@@ -1161,8 +1133,12 @@ async def on_newgame(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not_joined:
         await send_join_message(update, ctx)
         return
+    taken = get_taken_countries()
+    if len(taken) >= len(COUNTRIES):
+        await update.message.reply_text("❌ همه کشورها انتخاب شدن.")
+        return
     await update.message.reply_text(
-        "🌍 *کشورت رو انتخاب کن:*\n\n🟢 آسان  |  🟡 متوسط  |  🔴 سخت\n\nاز دکمه‌های پایین انتخاب کن 👇",
+        "🌍 *کشورت رو انتخاب کن:*\n\nاز دکمه‌های پایین انتخاب کن 👇",
         reply_markup=country_reply(),
         parse_mode="Markdown"
     )
@@ -1205,26 +1181,7 @@ async def on_country_pick(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"✅ کشور انتخاب شد: {c['flag']} *{c['name']}*\n\n"
-        f"{render_dashboard(g)}\n\n"
-        f"از دکمه‌های پایین انتخاب کن:",
-        reply_markup=main_menu_reply(),
-        parse_mode="Markdown"
-    )
-
-
-# ═══════════════════════════════════════════════════════════════
-#  🎮 هندلر: منو
-# ═══════════════════════════════════════════════════════════════
-async def on_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    g = get_game(uid)
-    if not g:
-        await update.message.reply_text("اول بازی جدید بساز: /start")
-        return
-    check_and_run_turn(uid)
-    g = get_game(uid)
-    await update.message.reply_text(
-        render_dashboard(g),
+        f"{render_dashboard(g)}",
         reply_markup=main_menu_reply(),
         parse_mode="Markdown"
     )
@@ -1273,7 +1230,7 @@ async def on_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 # ═══════════════════════════════════════════════════════════════
-#  💰 هندلر: اقتصاد
+#  💰 اقتصاد
 # ═══════════════════════════════════════════════════════════════
 async def on_eco(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
@@ -1318,13 +1275,13 @@ async def on_eco(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"👥 نیرو: {fmt(g['manpower'])}  (+{c['manpower']}/نوبت)\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"💵 مالیات: {g['tax_rate']}%  |  😊 رضایت: {g['happiness']}%\n\n"
-        f"از دکمه‌های پایین انتخاب کن:"
+        f"از دکمه‌های پایین انتخاب کن 👇"
     )
     await update.message.reply_text(text, reply_markup=eco_reply(), parse_mode="Markdown")
 
 
 # ═══════════════════════════════════════════════════════════════
-#  💵 هندلر: مالیات
+#  💵 مالیات
 # ═══════════════════════════════════════════════════════════════
 async def on_tax(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
@@ -1370,7 +1327,7 @@ async def on_tax_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 # ═══════════════════════════════════════════════════════════════
-#  🏛️ هندلر: امور کشور
+#  🏛️ امور کشور
 # ═══════════════════════════════════════════════════════════════
 async def on_internal(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
@@ -1398,7 +1355,7 @@ async def on_internal(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         text += "\n✅ وضعیت آرامه."
 
-    text += "\n\nاز دکمه‌های پایین انتخاب کن:"
+    text += "\n\nاز دکمه‌های پایین انتخاب کن 👇"
     await update.message.reply_text(text, reply_markup=internal_reply(), parse_mode="Markdown")
 
 
@@ -1445,7 +1402,7 @@ async def on_suppress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 # ═══════════════════════════════════════════════════════════════
-#  ⚔️ هندلر: ارتش
+#  ⚔️ ارتش
 # ═══════════════════════════════════════════════════════════════
 async def on_army(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
@@ -1474,7 +1431,7 @@ async def on_army(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lines.append(f"🛡️ دفاع کل: {fmt(dfn)}")
     if g["oil"] <= 0:
         lines.append("\n⚠️ *نفتت تمومه! ارتشت ۵۰٪ ضعیف شده.*")
-    lines.append("\nاز دکمه‌های پایین انتخاب کن:")
+    lines.append("\nاز دکمه‌های پایین انتخاب کن 👇")
 
     await update.message.reply_text("\n".join(lines), reply_markup=army_reply(), parse_mode="Markdown")
 
@@ -1534,7 +1491,7 @@ async def on_buy_tank(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"✅ {u['name']} — {u['money']}💰 (قدرت {u['attack']})")
         else:
             lines.append(f"🔒 {u['name']} (تحقیق کن)")
-    lines.append("\nاز دکمه‌های پایین انتخاب کن:")
+    lines.append("\nاز دکمه‌های پایین انتخاب کن 👇")
     await update.message.reply_text("\n".join(lines), reply_markup=buy_tank_reply(g), parse_mode="Markdown")
 
 
@@ -1606,7 +1563,7 @@ async def on_buy_plane(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"✅ {u['name']} — {u['money']}💰 (قدرت {u['attack']})")
         else:
             lines.append(f"🔒 {u['name']} (تحقیق کن)")
-    lines.append("\nاز دکمه‌های پایین انتخاب کن:")
+    lines.append("\nاز دکمه‌های پایین انتخاب کن 👇")
     await update.message.reply_text("\n".join(lines), reply_markup=buy_plane_reply(g), parse_mode="Markdown")
 
 
@@ -1677,7 +1634,7 @@ async def on_buy_ship(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"✅ {u['name']} — {u['money']}💰 (قدرت {u['attack']})")
         else:
             lines.append(f"🔒 {u['name']} (تحقیق کن)")
-    lines.append("\nاز دکمه‌های پایین انتخاب کن:")
+    lines.append("\nاز دکمه‌های پایین انتخاب کن 👇")
     await update.message.reply_text("\n".join(lines), reply_markup=buy_ship_reply(g), parse_mode="Markdown")
 
 
@@ -1751,7 +1708,7 @@ async def on_research(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"✅ {name} (قدرت {power})")
         else:
             lines.append(f"🔒 {name} — {cost}💰")
-    lines.append("\nاز دکمه‌های پایین انتخاب کن:")
+    lines.append("\nاز دکمه‌های پایین انتخاب کن 👇")
     await update.message.reply_text("\n".join(lines), reply_markup=research_reply(g), parse_mode="Markdown")
 
 
@@ -1806,7 +1763,7 @@ async def on_projects(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 lines.append(f"🔨 {p['name']} (در حال ساخت - {days_left} نوبت)")
             else:
                 lines.append(f"🆕 {p['name']} — {p['money']}💰 + {p['steel']}⚙️")
-    lines.append("\nاز دکمه‌های پایین انتخاب کن:")
+    lines.append("\nاز دکمه‌های پایین انتخاب کن 👇")
     await update.message.reply_text("\n".join(lines), reply_markup=projects_reply(g), parse_mode="Markdown")
 
 
@@ -1834,9 +1791,7 @@ async def on_project_pick(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
             return
-
-
-# ═══════════════════════════════════════════════════════════════
+            # ═══════════════════════════════════════════════════════════════
 #  🎯 حمله
 # ═══════════════════════════════════════════════════════════════
 async def on_attack(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1849,14 +1804,15 @@ async def on_attack(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚔️ هنوز بازیکن دیگه‌ای نیست.", reply_markup=back_menu_reply())
         return
     ctx.user_data["attack_force"] = {"soldiers": 0, "tanks": 0, "planes": 0, "ships": 0}
+    ctx.user_data["attack_target"] = None
     lines = ["🎯 *حمله — هدف رو انتخاب کن:*", "━━━━━━━━━━━━━━━━━━━━━━"]
     for p in players:
         c = COUNTRIES[p["country"]]
         can, way = can_attack(g["country"], p["country"])
         marker = "✅" if can else "🔒"
         lines.append(f"{marker} {c['flag']} {c['name']}")
-    lines.append("\nاز دکمه‌های پایین انتخاب کن:")
-    await update.message.reply_text("\n".join(lines), reply_markup=attack_target_reply(), parse_mode="Markdown")
+    lines.append("\nاز دکمه‌های پایین انتخاب کن 👇")
+    await update.message.reply_text("\n".join(lines), reply_markup=attack_target_reply(exclude_uid=uid), parse_mode="Markdown")
 
 
 async def on_attack_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1873,6 +1829,7 @@ async def on_attack_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ {way}")
         return
     ctx.user_data["attack_target"] = target_key
+    ctx.user_data["attack_force"] = {"soldiers": 0, "tanks": 0, "planes": 0, "ships": 0}
     c = COUNTRIES[target_key]
     kb = ReplyKeyboardMarkup([
         [KeyboardButton("🪖 سرباز"), KeyboardButton("🛡️ تانک")],
@@ -2008,9 +1965,9 @@ async def on_attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             force["ships"] -= used
 
     target_uid = find_player_by_country(target)
-    if target_uid and not is_npc(target_uid):
+    if target_uid:
         tg = get_game(target_uid)
-        enemy_def = compute_army_power(tg, "defense")
+        enemy_def = compute_army_power(tg, "defense") if tg else 100
     else:
         enemy_def = random.randint(100, 300)
 
@@ -2085,13 +2042,12 @@ async def on_attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════════════════════════════════════════════
 async def on_spy(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    g = get_game(uid)
     players = get_active_players(exclude_uid=uid)
     if not players:
         await update.message.reply_text("🕵️ هنوز بازیکن دیگه‌ای نیست.", reply_markup=back_menu_reply())
         return
-    lines = ["🕵️ *جاسوسی*", "هزینه: ۵۰💰", "شانس لو رفتن: ۴۰٪", "", "هدف رو انتخاب کن:"]
-    await update.message.reply_text("\n".join(lines), reply_markup=attack_target_reply(), parse_mode="Markdown")
+    lines = ["🕵️ *جاسوسی*", "هزینه: ۵۰💰", "شانس لو رفتن: ۴۰٪", "", "هدف رو انتخاب کن 👇"]
+    await update.message.reply_text("\n".join(lines), reply_markup=attack_target_reply(exclude_uid=uid), parse_mode="Markdown")
     ctx.user_data["waiting_spy"] = True
 
 
@@ -2140,7 +2096,7 @@ async def on_dip(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = (
         f"🤝 *دیپلماسی*\n━━━━━━━━━━━━━━━━━━━━━━\n"
         f"متحدین: {allies_names}\nدر جنگ با: {wars_names}\n\n"
-        f"از دکمه‌های پایین انتخاب کن:"
+        f"از دکمه‌های پایین انتخاب کن 👇"
     )
     await update.message.reply_text(text, reply_markup=dip_reply(), parse_mode="Markdown")
 
@@ -2164,8 +2120,8 @@ async def on_dip_action(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["dip_kind"] = kind
     ctx.user_data["waiting_dip_target"] = True
     await update.message.reply_text(
-        f"🎯 کشور هدف رو انتخاب کن:",
-        reply_markup=attack_target_reply()
+        f"🎯 کشور هدف رو انتخاب کن 👇",
+        reply_markup=attack_target_reply(exclude_uid=uid)
     )
 
 
@@ -2180,7 +2136,7 @@ async def on_dip_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     g = get_game(uid)
     target_uid = find_player_by_country(target_key)
-    if not target_uid or is_npc(target_uid):
+    if not target_uid:
         await update.message.reply_text("❌ بازیکن نداره.")
         ctx.user_data["waiting_dip_target"] = False
         return
@@ -2239,7 +2195,7 @@ async def on_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"📦 *تجارت*\n━━━━━━━━━━━━━━━━━━━━━━\n"
         f"💰 {fmt(g['money'])}  🍞 {fmt(g['food'])}  ⚙️ {fmt(g['steel'])}\n"
         f"🛢️ {fmt(g['oil'])}  🪨 {fmt(g['coal'])}  👥 {fmt(g['manpower'])}\n\n"
-        f"می‌خوای چی صادر کنی؟\nاز دکمه‌های پایین انتخاب کن:"
+        f"می‌خوای چی صادر کنی؟\nاز دکمه‌های پایین انتخاب کن 👇"
     )
     await update.message.reply_text(text, reply_markup=trade_reply(), parse_mode="Markdown")
 
@@ -2282,11 +2238,11 @@ async def on_trade_amount_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return True
     ctx.user_data["trade_amount"] = amount
     ctx.user_data["waiting_trade_amount"] = False
+    ctx.user_data["waiting_trade_want"] = True
     await update.message.reply_text(
         f"✅ {amount} انتخاب شد.\n\nدر ازای چی می‌خوای؟",
         reply_markup=trade_reply()
     )
-    ctx.user_data["waiting_trade_want"] = True
     return True
 
 
@@ -2309,7 +2265,7 @@ async def on_trade_want(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("هنوز بازیکن دیگه‌ای نیست.")
         return
     ctx.user_data["waiting_trade_target"] = True
-    await update.message.reply_text("🎯 طرف مقابل رو انتخاب کن:", reply_markup=attack_target_reply())
+    await update.message.reply_text("🎯 طرف مقابل رو انتخاب کن 👇", reply_markup=attack_target_reply(exclude_uid=uid))
 
 
 async def on_trade_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -2325,7 +2281,7 @@ async def on_trade_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     amount = ctx.user_data["trade_amount"]
     want = ctx.user_data["trade_want"]
     target_uid = find_player_by_country(target_key)
-    if not target_uid or is_npc(target_uid):
+    if not target_uid:
         await update.message.reply_text("❌ بازیکن نداره.")
         ctx.user_data["waiting_trade_target"] = False
         return
@@ -2354,14 +2310,14 @@ async def on_menu_btn(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 # ═══════════════════════════════════════════════════════════════
-#  🎯 هندلر اصلی متنی (Router)
+#  🎯 Router اصلی متنی
 # ═══════════════════════════════════════════════════════════════
 async def on_text_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
     text = update.message.text.strip()
 
-    # اول چک کن waitingها
+    # Waiting inputs
     if await on_tax_input(update, ctx): return
     if await on_soldier_input(update, ctx): return
     if await on_tank_qty_input(update, ctx): return
@@ -2371,7 +2327,7 @@ async def on_text_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if await on_talk_msg_input(update, ctx): return
     if await on_trade_amount_input(update, ctx): return
 
-    # کشور انتخاب
+    # Country pick — contexts
     if text in COUNTRY_MAP:
         if ctx.user_data.get("waiting_spy"):
             await on_spy_target(update, ctx); return
@@ -2379,12 +2335,12 @@ async def on_text_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await on_dip_target(update, ctx); return
         if ctx.user_data.get("waiting_trade_target"):
             await on_trade_target(update, ctx); return
-        if ctx.user_data.get("attack_target") and not ctx.user_data.get("attack_force"):
+        if ctx.user_data.get("attack_target"):
             await on_attack_target(update, ctx); return
         if not get_game(update.effective_user.id):
             await on_country_pick(update, ctx); return
 
-    # منوی اصلی
+    # منو اصلی
     if text == "🎮 بازی جدید": await on_newgame(update, ctx); return
     if text == "📖 راهنما": await on_help(update, ctx); return
     if text == "💰 اقتصاد": await on_eco(update, ctx); return
@@ -2404,7 +2360,7 @@ async def on_text_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if text == "💵 تغییر مالیات": await on_tax(update, ctx); return
     if text == "🏗️ ساخت پروژه": await on_projects(update, ctx); return
 
-    # امور کشور
+    # امور
     if text == "📢 سخنرانی": await on_speech(update, ctx); return
     if text == "🚔 سرکوب": await on_suppress(update, ctx); return
 
@@ -2424,15 +2380,13 @@ async def on_text_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await on_trade_want(update, ctx); return
         await on_trade_res(update, ctx); return
 
-    # حمله — شروع
+    # حمله
     if text == "🚀 شروع حمله": await on_attack_go(update, ctx); return
-
-    # حمله — انتخاب نیرو
     if text in ("🪖 سرباز", "🛡️ تانک", "✈️ هواپیما", "🚢 کشتی"):
         if ctx.user_data.get("attack_target"):
             await on_attack_force(update, ctx); return
 
-    # تحقیقات / پروژه / تانک / هواپیما / کشتی — انتخاب از لیست
+    # لیست‌ها
     uid = update.effective_user.id
     g = get_game(uid)
     if g:
@@ -2445,19 +2399,16 @@ async def on_text_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 await on_project_pick(update, ctx); return
         unlocked = json.loads(g["research"] or "[]")
         if text in unlocked:
-            units_tank = get_available_units(g, "tank")
-            for u in units_tank:
+            for u in get_available_units(g, "tank"):
                 if u["unlocked"] and u["name"] == text:
                     await on_tank_pick(update, ctx); return
-            units_plane = get_available_units(g, "plane")
-            for u in units_plane:
+            for u in get_available_units(g, "plane"):
                 if u["unlocked"] and u["name"] == text:
                     await on_plane_pick(update, ctx); return
-            units_ship = get_available_units(g, "ship")
-            for u in units_ship:
+            for u in get_available_units(g, "ship"):
                 if u["unlocked"] and u["name"] == text:
                     await on_ship_pick(update, ctx); return
-                    # ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
 #  👑 ادمین
 # ═══════════════════════════════════════════════════════════════
 async def cmd_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -2615,8 +2566,6 @@ async def auto_turn_job(context: ContextTypes.DEFAULT_TYPE):
                 p_info = PROJECTS.get(k)
                 if p_info:
                     text += f"• {p_info['name']}\n"
-                elif k == "atomic_bomb":
-                    text += "• ☢️ *بمب اتم آماده شد!*\n"
         try:
             await context.bot.send_message(
                 p["user_id"],
@@ -2633,7 +2582,6 @@ async def auto_turn_job(context: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════════════════════════════════════════════
 def main():
     init_db()
-    ensure_npcs_exist()
 
     if "توکن" in BOT_TOKEN or not BOT_TOKEN:
         print("❌ توکن ربات تنظیم نشده!")
@@ -2657,7 +2605,7 @@ def main():
     # اطلاعات [کشور] برای ادمین
     app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^اطلاعات "), cmd_country_info))
 
-    # Router اصلی — همه دکمه‌های Reply
+    # Router اصلی
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
         on_text_router
