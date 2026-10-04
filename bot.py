@@ -1064,17 +1064,6 @@ async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-    start_new_game(uid, key)
-    g = get_game(uid)
-
-    await q.message.reply_text(
-        f"✅ کشور انتخاب شد: {c['flag']} *{c['name']}*\n\n"
-        f"{render_dashboard(g)}\n\n"
-        f"از اینجا بازی شروع میشه!",
-        reply_markup=main_menu_kb(),
-        parse_mode="Markdown"
-    )
-
 
 async def cb_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
