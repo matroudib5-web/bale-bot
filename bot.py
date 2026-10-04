@@ -3298,7 +3298,187 @@ async def smart_send(q, ctx, text, kb=None):
 
 def main():
     init_db()
-    ...
+    ensure_npcs_exist()
+
+    if "توکن" in BOT_TOKEN or not BOT_TOKEN:
+        print("❌ توکن ربات تنظیم نشده!")
+        return
+
+    keep_alive()
+
+    app = Application.builder().token(BOT_TOKEN).base_url(BALE_API).build()
+
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("menu", cmd_menu))
+    app.add_handler(CommandHandler("next_turn", cmd_next_turn))
+    app.add_handler(CommandHandler("admin", cmd_admin))
+    app.add_handler(CommandHandler("give", cmd_give))
+    app.add_handler(CommandHandler("players", cmd_players))
+
+    app.add_handler(MessageHandler(
+        filters.TEXT & filters.Regex("^عضو شدم ✅$"),
+        on_joined_check
+    ))
+    app.add_handler(MessageHandler(
+        filters.TEXT & filters.Regex("^🎮 منو$"),
+        cmd_menu
+    ))
+    app.add_handler(MessageHandler(
+        filters.TEXT & filters.Regex("^اطلاعات "),
+        cmd_country_info
+    ))
+
+    buy_soldier_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(buy_soldier_start, pattern="^buy_soldier$")],
+        states={BUY_SOLDIER_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_soldier_qty)]},
+        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
+        per_user=True,
+    )
+    app.add_handler(buy_soldier_conv)
+
+    buy_tank_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(buy_tank_start, pattern="^buy_tank$"),
+            CallbackQueryHandler(buytank_pick, pattern="^buytank_"),
+        ],
+        states={
+            BUY_TANK_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buytank_qty)],
+        },
+        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(buy_tank_conv)
+
+    buy_plane_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(buy_plane_start, pattern="^buy_plane$"),
+            CallbackQueryHandler(buyplane_pick, pattern="^buyplane_"),
+        ],
+        states={
+            BUY_PLANE_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buyplane_qty)],
+        },
+        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(buy_plane_conv)
+
+    buy_ship_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(buy_ship_start, pattern="^buy_ship$"),
+            CallbackQueryHandler(buyship_pick, pattern="^buyship_"),
+        ],
+        states={
+            BUY_SHIP_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buyship_qty)],
+        },
+        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(buy_ship_conv)
+
+    tax_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(cb_tax, pattern="^tax$")],
+        states={TAX_INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, tax_set)]},
+        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
+        per_user=True,
+    )
+    app.add_handler(tax_conv)
+
+    attack_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(cb_attack, pattern="^attack$")],
+        states={
+            ATTACK_TARGET: [
+                CallbackQueryHandler(attack_target, pattern="^atk_"),
+            ],
+            ATTACK_FORCE: [
+                CallbackQueryHandler(attack_pick_unit, pattern="^af_(soldiers|tanks|planes|ships)$"),
+                CallbackQueryHandler(af_back, pattern="^af_back$"),
+                CallbackQueryHandler(attack_go, pattern="^af_go$"),
+            ],
+            ATTACK_QTY: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, attack_qty),
+                CallbackQueryHandler(af_back, pattern="^af_back$"),
+            ],
+        },
+        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(attack_conv)
+
+    talk_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cb_dip_confirm, pattern="^dipt_talk_"),
+            CallbackQueryHandler(cb_talk_reply, pattern="^talkreply_"),
+        ],
+        states={DIP_TALK_MSG: [MessageHandler(filters.TEXT & ~filters.COMMAND, dip_talk_send)]},
+        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(talk_conv)
+
+    trade_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(cb_trade, pattern="^trade$")],
+        states={
+            TRADE_PICK_TYPE: [CallbackQueryHandler(trade_pick_type, pattern="^tp_")],
+            TRADE_PICK_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, trade_pick_amount)],
+            TRADE_PICK_WANT: [CallbackQueryHandler(trade_pick_want, pattern="^tw_")],
+        },
+        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
+        per_user=True,
+        allow_reentry=True,
+    )
+    app.add_handler(trade_conv)
+
+    app.add_handler(CallbackQueryHandler(cb_newgame, pattern="^newgame$"))
+    app.add_handler(CallbackQueryHandler(cb_pick_country, pattern="^pick_"))
+    app.add_handler(CallbackQueryHandler(cb_menu, pattern="^menu$"))
+    app.add_handler(CallbackQueryHandler(cb_eco, pattern="^eco$"))
+    app.add_handler(CallbackQueryHandler(cb_army, pattern="^army$"))
+    app.add_handler(CallbackQueryHandler(cb_res, pattern="^res$"))
+    app.add_handler(CallbackQueryHandler(cb_research, pattern="^res_"))
+    app.add_handler(CallbackQueryHandler(cb_proj, pattern="^proj$"))
+    app.add_handler(CallbackQueryHandler(cb_build, pattern="^build_"))
+    app.add_handler(CallbackQueryHandler(cb_internal, pattern="^internal$"))
+    app.add_handler(CallbackQueryHandler(cb_speech, pattern="^speech$"))
+    app.add_handler(CallbackQueryHandler(cb_suppress, pattern="^suppress$"))
+    app.add_handler(CallbackQueryHandler(cb_spy, pattern="^spy$"))
+    app.add_handler(CallbackQueryHandler(cb_spy_do, pattern="^spy_"))
+    app.add_handler(CallbackQueryHandler(cb_stats, pattern="^stats$"))
+    app.add_handler(CallbackQueryHandler(cb_help, pattern="^help$"))
+    app.add_handler(CallbackQueryHandler(cb_colony, pattern="^colony_"))
+
+    app.add_handler(CallbackQueryHandler(cb_dip, pattern="^dip$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_ally, pattern="^dip_ally$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_peace, pattern="^dip_peace$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_war, pattern="^dip_war$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_nap, pattern="^dip_nap$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_tech, pattern="^dip_tech$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_trade, pattern="^dip_trade$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_talk, pattern="^dip_talk$"))
+    app.add_handler(CallbackQueryHandler(cb_dip_accept, pattern="^dipacc_"))
+    app.add_handler(CallbackQueryHandler(cb_dip_reject, pattern="^diprej_"))
+    app.add_handler(CallbackQueryHandler(cb_dip_confirm, pattern="^dipt_(?!talk_)"))
+
+    app.add_handler(CallbackQueryHandler(cb_trade_send, pattern="^tt_"))
+    app.add_handler(CallbackQueryHandler(cb_trade_accept, pattern="^tradeacc_"))
+    app.add_handler(CallbackQueryHandler(cb_trade_reject, pattern="^traderej_"))
+
+    app.add_handler(CallbackQueryHandler(cb_atom_use, pattern="^atom_use$"))
+    app.add_handler(CallbackQueryHandler(cb_atom_target, pattern="^atom_"))
+
+    if app.job_queue:
+        app.job_queue.run_repeating(auto_turn_job, interval=3600, first=120)
+        print("⏰ نوبت خودکار فعال شد (هر ۱ ساعت)")
+
+    print("🎖️ ربات جنگ جهانی دوم در حال اجراست...")
+    print("📅 شروع: ۱ سپتامبر ۱۹۳۹")
+    print("🏁 پایان: ۲ سپتامبر ۱۹۴۵")
+    print("⏰ هر نوبت: ۳ روز بازی | هر ۱ ساعت واقعی")
+    app.run_polling()
 
 
 if __name__ == "__main__":
