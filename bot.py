@@ -1037,15 +1037,32 @@ async def cb_newgame(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     key = q.data.replace("pick_", "")
     c = COUNTRIES[key]
 
     existing = find_player_by_country(key)
     if existing and existing != uid:
-        await q.answer(f"❌ {c['name']} قبلاً انتخاب شده!", show_alert=True)
+        try:
+            await q.answer(f"❌ {c['name']} قبلاً انتخاب شده!", show_alert=True)
+        except:
+            pass
         return
+
+    start_new_game(uid, key)
+    g = get_game(uid)
+
+    await q.edit_message_text(
+        f"✅ کشور انتخاب شد: {c['flag']} *{c['name']}*\n\n"
+        f"{render_dashboard(g)}\n\n"
+        f"از اینجا بازی شروع میشه!",
+        reply_markup=main_menu_kb(),
+        parse_mode="Markdown"
+    )
 
     start_new_game(uid, key)
     g = get_game(uid)
