@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-🎖️ ربات بازی جنگ جهانی دوم — نسخه کامل
+🎖️ ربات بازی جنگ جهانی دوم — نسخه نهایی
 """
 
 import os
@@ -901,6 +901,19 @@ def countries_kb():
     return InlineKeyboardMarkup(rows)
 
 
+async def new_msg(q, ctx, text, kb=None):
+    """ارسال پیام جدید (بدون ویرایش)"""
+    try:
+        await ctx.bot.send_message(
+            chat_id=q.from_user.id,
+            text=text,
+            reply_markup=kb,
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        log.warning(f"send failed: {e}")
+
+
 def render_dashboard(g):
     c = COUNTRIES[g["country"]]
     dt = parse_game_date(g["game_date"])
@@ -1031,12 +1044,7 @@ async def cb_newgame(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.answer()
     except:
         pass
-    await ctx.bot.send_message(
-        chat_id=q.from_user.id,
-        text="🌍 *کشورت رو انتخاب کن:*\n\n🟢 آسان  |  🟡 متوسط  |  🔴 سخت",
-        reply_markup=countries_kb(),
-        parse_mode="Markdown"
-    )
+    await new_msg(q, ctx, "🌍 *کشورت رو انتخاب کن:*\n\n🟢 آسان  |  🟡 متوسط  |  🔴 سخت", countries_kb())
 
 
 async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1060,14 +1068,12 @@ async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     start_new_game(uid, key)
     g = get_game(uid)
 
-    await smart_send(q, ctx,
+    await new_msg(q, ctx,
         f"✅ کشور انتخاب شد: {c['flag']} *{c['name']}*\n\n"
         f"{render_dashboard(g)}\n\n"
         f"از اینجا بازی شروع میشه!",
         main_menu_kb()
     )
-
-
 
 
 async def cb_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1078,31 +1084,28 @@ async def cb_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         pass
     g = get_game(q.from_user.id)
     if not g:
-        await ctx.bot.send_message(chat_id=q.from_user.id, text="بازی پیدا نشد. /start رو بزن.")
+        await new_msg(q, ctx, "بازی پیدا نشد. /start رو بزن.")
         return
-    await ctx.bot.send_message(
-        chat_id=q.from_user.id,
-        text=render_dashboard(g),
-        reply_markup=main_menu_kb(),
-        parse_mode="Markdown"
-    )
+    await new_msg(q, ctx, render_dashboard(g), main_menu_kb())
 
 
 async def cb_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
-    await q.edit_message_text(
-        render_dashboard(g),
-        reply_markup=back_kb(),
-        parse_mode="Markdown"
-    )
+    await new_msg(q, ctx, render_dashboard(g), back_kb())
 
 
 async def cb_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
-    await q.edit_message_text(
+    try:
+        await q.answer()
+    except:
+        pass
+    text = (
         "📖 *راهنما*\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "1️⃣ کشور انتخاب کن\n"
@@ -1112,16 +1115,19 @@ async def cb_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "5️⃣ حمله و جاسوسی\n"
         "6️⃣ هدف: پیروزی!\n\n"
         "📅 هر ۱ ساعت یه نوبت خودکار میاد.\n"
-        "⚔️ هر نوبت = ۳ روز بازی\n\n",
-        reply_markup=back_kb(),
-        parse_mode="Markdown"
+        "⚔️ هر نوبت = ۳ روز بازی\n\n"
+        "卐زنده باد فاشیسم و نازیسم卐"
     )
+    await new_msg(q, ctx, text, back_kb())
     # ═══════════════════════════════════════════════════════════════
 #  💰 اقتصاد
 # ═══════════════════════════════════════════════════════════════
 async def cb_eco(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
     c = COUNTRIES[g["country"]]
     tax_mult = g["tax_rate"] / 20.0
@@ -1168,7 +1174,7 @@ async def cb_eco(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🏗️ ساخت پروژه", callback_data="proj")],
         [menu_btn()],
     ])
-    await q.edit_message_text(text, reply_markup=kb, parse_mode="Markdown")
+    await new_msg(q, ctx, text, kb)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1179,9 +1185,12 @@ TAX_INPUT = 10
 
 async def cb_tax(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
-    await q.edit_message_text(
+    text = (
         f"💵 *مالیات*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"الان: {g['tax_rate']}%\n"
@@ -1189,10 +1198,9 @@ async def cb_tax(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"عددی بین ۰ تا ۵۰ بفرست.\n"
         f"• بالای ۲۵٪ = نارضایتی هر نوبت\n"
         f"• زیر ۱۵٪ = رضایت بیشتر\n"
-        f"• ۲۰٪ = تعادل",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[menu_btn()]])
+        f"• ۲۰٪ = تعادل"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup([[menu_btn()]]))
     return TAX_INPUT
 
 
@@ -1223,7 +1231,10 @@ async def tax_set(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════════════════════════════════════════════
 async def cb_internal(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
 
     speech_left = g.get("speech_turns_left") or 0
@@ -1252,43 +1263,60 @@ async def cb_internal(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚔 سرکوب (۵۰💰)", callback_data="suppress")],
         [menu_btn()],
     ])
-    await q.edit_message_text(text, reply_markup=kb, parse_mode="Markdown")
+    await new_msg(q, ctx, text, kb)
 
 
 async def cb_speech(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     g = get_game(uid)
 
     if (g.get("speech_turns_left") or 0) > 0:
-        await q.answer("❌ یه سخنرانی فعال داری. صبر کن تموم بشه.", show_alert=True)
+        try:
+            await q.answer("❌ یه سخنرانی فعال داری. صبر کن تموم بشه.", show_alert=True)
+        except:
+            pass
         return
     if g["money"] < 100:
-        await q.answer("❌ ۱۰۰ پول لازمه.", show_alert=True)
+        try:
+            await q.answer("❌ ۱۰۰ پول لازمه.", show_alert=True)
+        except:
+            pass
         return
 
     save_game(uid, money=g["money"] - 100, speech_turns_left=5)
 
-    await q.message.reply_text(
+    await new_msg(q, ctx,
         "📢 سخنرانی رهبر شروع شد!\n"
         "اثرش در ۵ نوبت آینده ظاهر میشه (+۲ رضایت هر نوبت).",
-        reply_markup=main_menu_kb(),
-        parse_mode="Markdown"
+        main_menu_kb()
     )
 
 
 async def cb_suppress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     g = get_game(uid)
 
     if (g.get("suppress_cooldown") or 0) > 0:
-        await q.answer("❌ سرکوب قبلی هنوز اثر داره. صبر کن.", show_alert=True)
+        try:
+            await q.answer("❌ سرکوب قبلی هنوز اثر داره. صبر کن.", show_alert=True)
+        except:
+            pass
         return
     if g["money"] < 50:
-        await q.answer("❌ ۵۰ پول لازمه.", show_alert=True)
+        try:
+            await q.answer("❌ ۵۰ پول لازمه.", show_alert=True)
+        except:
+            pass
         return
 
     save_game(uid,
@@ -1297,11 +1325,10 @@ async def cb_suppress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         suppress_cooldown=3,
         suppress_count=(g.get("suppress_count") or 0) + 1)
 
-    await q.message.reply_text(
+    await new_msg(q, ctx,
         "🚔 سرکوب شد!\n"
         "+۱۰ رضایت فوری (ولی بعد ۳ نوبت -۵ رضایت پایه)",
-        reply_markup=main_menu_kb(),
-        parse_mode="Markdown"
+        main_menu_kb()
     )
 
 
@@ -1310,7 +1337,10 @@ async def cb_suppress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════════════════════════════════════════════
 async def cb_army(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
     atk = compute_army_power(g, "attack")
     dfn = compute_army_power(g, "defense")
@@ -1345,7 +1375,7 @@ async def cb_army(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
          InlineKeyboardButton("🚢 خرید کشتی", callback_data="buy_ship")],
         [menu_btn()],
     ])
-    await q.edit_message_text("\n".join(lines), reply_markup=kb, parse_mode="Markdown")
+    await new_msg(q, ctx, "\n".join(lines), kb)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1356,16 +1386,18 @@ BUY_SOLDIER_QTY = 20
 
 async def buy_soldier_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
-    await q.edit_message_text(
+    try:
+        await q.answer()
+    except:
+        pass
+    text = (
         "🪖 *خرید سرباز*\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "قیمت هر سرباز: ۱۰💰 + ۱👥\n\n"
         "چند تا سرباز می‌خوای؟\n"
-        "عدد بفرست:",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="army")]])
+        "عدد بفرست:"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="army")]]))
     return BUY_SOLDIER_QTY
 
 
@@ -1413,7 +1445,10 @@ BUY_TANK_QTY = 21
 
 async def buy_tank_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
     units = get_available_units(g, "tank")
 
@@ -1430,22 +1465,24 @@ async def buy_tank_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"🔒 {u['name']} — {u['money']}💰 (تحقیق کن)")
     rows.append([InlineKeyboardButton("❌ انصراف", callback_data="army")])
 
-    await q.edit_message_text(
-        "\n".join(lines),
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
-    )
+    await new_msg(q, ctx, "\n".join(lines), InlineKeyboardMarkup(rows))
 
 
 async def buytank_pick(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     name = q.data.replace("buytank_", "").replace("_", " ")
     g = get_game(q.from_user.id)
 
     unlocked = json.loads(g["research"] or "[]")
     if name not in unlocked:
-        await q.answer("❌ اول این تانک رو تحقیق کن!", show_alert=True)
+        try:
+            await q.answer("❌ اول این تانک رو تحقیق کن!", show_alert=True)
+        except:
+            pass
         return
 
     ctx.user_data["buy_tank_name"] = name
@@ -1456,15 +1493,14 @@ async def buytank_pick(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     steel = max(1, power // 5)
     oil = max(0, power // 8)
 
-    await q.edit_message_text(
+    text = (
         f"🛡️ *خرید {name}*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"قیمت هر واحد: {money}💰 + {steel}⚙️ + {oil}🛢️\n"
         f"قدرت: {power} حمله\n\n"
-        f"چند تا می‌خوای؟\nعدد بفرست:",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="army")]])
+        f"چند تا می‌خوای؟\nعدد بفرست:"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="army")]]))
     return BUY_TANK_QTY
 
 
@@ -1524,7 +1560,10 @@ BUY_PLANE_QTY = 22
 
 async def buy_plane_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
     units = get_available_units(g, "plane")
 
@@ -1541,21 +1580,23 @@ async def buy_plane_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"🔒 {u['name']} — {u['money']}💰 (تحقیق کن)")
     rows.append([InlineKeyboardButton("❌ انصراف", callback_data="army")])
 
-    await q.edit_message_text(
-        "\n".join(lines),
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
-    )
+    await new_msg(q, ctx, "\n".join(lines), InlineKeyboardMarkup(rows))
 
 
 async def buyplane_pick(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     name = q.data.replace("buyplane_", "").replace("_", " ")
     g = get_game(q.from_user.id)
     unlocked = json.loads(g["research"] or "[]")
     if name not in unlocked:
-        await q.answer("❌ اول این هواپیما رو تحقیق کن!", show_alert=True)
+        try:
+            await q.answer("❌ اول این هواپیما رو تحقیق کن!", show_alert=True)
+        except:
+            pass
         return
 
     ctx.user_data["buy_plane_name"] = name
@@ -1565,15 +1606,14 @@ async def buyplane_pick(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     steel = max(1, power // 6)
     oil = max(1, power // 4)
 
-    await q.edit_message_text(
+    text = (
         f"✈️ *خرید {name}*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"قیمت هر واحد: {money}💰 + {steel}⚙️ + {oil}🛢️\n"
         f"قدرت: {power} حمله\n\n"
-        f"چند تا می‌خوای؟",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="army")]])
+        f"چند تا می‌خوای؟"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="army")]]))
     return BUY_PLANE_QTY
 
 
@@ -1630,7 +1670,10 @@ BUY_SHIP_QTY = 23
 
 async def buy_ship_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
     units = get_available_units(g, "ship")
 
@@ -1647,21 +1690,23 @@ async def buy_ship_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             lines.append(f"🔒 {u['name']} — {u['money']}💰 (تحقیق کن)")
     rows.append([InlineKeyboardButton("❌ انصراف", callback_data="army")])
 
-    await q.edit_message_text(
-        "\n".join(lines),
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
-    )
+    await new_msg(q, ctx, "\n".join(lines), InlineKeyboardMarkup(rows))
 
 
 async def buyship_pick(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     name = q.data.replace("buyship_", "").replace("_", " ")
     g = get_game(q.from_user.id)
     unlocked = json.loads(g["research"] or "[]")
     if name not in unlocked:
-        await q.answer("❌ اول این کشتی رو تحقیق کن!", show_alert=True)
+        try:
+            await q.answer("❌ اول این کشتی رو تحقیق کن!", show_alert=True)
+        except:
+            pass
         return
 
     ctx.user_data["buy_ship_name"] = name
@@ -1671,15 +1716,14 @@ async def buyship_pick(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     steel = max(2, power // 3)
     oil = max(1, power // 5)
 
-    await q.edit_message_text(
+    text = (
         f"🚢 *خرید {name}*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"قیمت هر واحد: {money}💰 + {steel}⚙️ + {oil}🛢️\n"
         f"قدرت: {power} حمله\n\n"
-        f"چند تا می‌خوای؟",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="army")]])
+        f"چند تا می‌خوای؟"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="army")]]))
     return BUY_SHIP_QTY
 
 
@@ -1731,7 +1775,10 @@ async def buyship_qty(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════════════════════════════════════════════
 async def cb_res(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
     tree = RESEARCH.get(g["country"], [])
     unlocked = json.loads(g["research"] or "[]")
@@ -1749,16 +1796,15 @@ async def cb_res(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             )])
     rows.append([menu_btn()])
 
-    await q.edit_message_text(
-        "\n".join(lines),
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
-    )
+    await new_msg(q, ctx, "\n".join(lines), InlineKeyboardMarkup(rows))
 
 
 async def cb_research(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     name = q.data.replace("res_", "").replace("_", " ")
     g = get_game(uid)
@@ -1767,15 +1813,24 @@ async def cb_research(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     for n, cost, days, power in tree:
         if n == name:
             if g["money"] < cost:
-                await q.answer("❌ پول کافی نداری.", show_alert=True)
+                try:
+                    await q.answer("❌ پول کافی نداری.", show_alert=True)
+                except:
+                    pass
                 return
             unlocked = json.loads(g["research"] or "[]")
             if name in unlocked:
-                await q.answer("قبلاً تحقیق شده.", show_alert=True)
+                try:
+                    await q.answer("قبلاً تحقیق شده.", show_alert=True)
+                except:
+                    pass
                 return
             unlocked.append(name)
             save_game(uid, money=g["money"] - cost, research=json.dumps(unlocked))
-            await q.answer(f"✅ {name} تحقیق شد!", show_alert=True)
+            try:
+                await q.answer(f"✅ {name} تحقیق شد!", show_alert=True)
+            except:
+                pass
             await cb_res(update, ctx)
             return
 
@@ -1785,7 +1840,10 @@ async def cb_research(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════════════════════════════════════════════
 async def cb_proj(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
     completed = json.loads(g["completed_projects"] or "[]")
     building = json.loads(g["projects"] or "[]")
@@ -1825,16 +1883,15 @@ async def cb_proj(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 )])
     rows.append([menu_btn()])
 
-    await q.edit_message_text(
-        "\n".join(lines),
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
-    )
+    await new_msg(q, ctx, "\n".join(lines), InlineKeyboardMarkup(rows))
 
 
 async def cb_build(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     key = q.data.replace("build_", "")
 
@@ -1842,10 +1899,16 @@ async def cb_build(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         g = get_game(uid)
         completed = json.loads(g["completed_projects"] or "[]")
         if "atomic_bomb" in completed:
-            await q.answer("قبلاً ساخته شده.", show_alert=True)
+            try:
+                await q.answer("قبلاً ساخته شده.", show_alert=True)
+            except:
+                pass
             return
         if g["money"] < 5000 or g["steel"] < 500 or g["oil"] < 200:
-            await q.answer("❌ نیاز: ۵۰۰۰💰 + ۵۰۰⚙️ + ۲۰۰🛢️", show_alert=True)
+            try:
+                await q.answer("❌ نیاز: ۵۰۰۰💰 + ۵۰۰⚙️ + ۲۰۰🛢️", show_alert=True)
+            except:
+                pass
             return
         projects = json.loads(g["projects"] or "[]")
         projects.append("atomic_bomb:30")
@@ -1854,23 +1917,35 @@ async def cb_build(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             steel=g["steel"] - 500,
             oil=g["oil"] - 200,
             projects=json.dumps(projects))
-        await q.answer("☢️ پروژه بمب اتم شروع شد! (۳۰ نوبت)", show_alert=True)
+        try:
+            await q.answer("☢️ پروژه بمب اتم شروع شد! (۳۰ نوبت)", show_alert=True)
+        except:
+            pass
         await cb_proj(update, ctx)
         return
 
     p = PROJECTS.get(key)
     if not p:
-        await q.answer("❌ پروژه پیدا نشد.", show_alert=True)
+        try:
+            await q.answer("❌ پروژه پیدا نشد.", show_alert=True)
+        except:
+            pass
         return
 
     g = get_game(uid)
     if g["money"] < p["money"] or g["steel"] < p["steel"]:
-        await q.answer(f"❌ نیاز: {p['money']}💰 + {p['steel']}⚙️", show_alert=True)
+        try:
+            await q.answer(f"❌ نیاز: {p['money']}💰 + {p['steel']}⚙️", show_alert=True)
+        except:
+            pass
         return
 
     projects = json.loads(g["projects"] or "[]")
     if any(x.split(":")[0] == key for x in projects):
-        await q.answer("در حال ساخت است.", show_alert=True)
+        try:
+            await q.answer("در حال ساخت است.", show_alert=True)
+        except:
+            pass
         return
 
     projects.append(f"{key}:{p['days']}")
@@ -1878,7 +1953,10 @@ async def cb_build(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         money=g["money"] - p["money"],
         steel=g["steel"] - p["steel"],
         projects=json.dumps(projects))
-    await q.answer(f"✅ {p['name']} شروع شد ({p['days']} نوبت)", show_alert=True)
+    try:
+        await q.answer(f"✅ {p['name']} شروع شد ({p['days']} نوبت)", show_alert=True)
+    except:
+        pass
     await cb_proj(update, ctx)
 
 
@@ -1890,17 +1968,19 @@ ATTACK_TARGET, ATTACK_FORCE, ATTACK_QTY = range(30, 33)
 
 async def cb_attack(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     g = get_game(uid)
     players = get_active_players(exclude_uid=uid)
 
     if not players:
-        await q.edit_message_text(
+        await new_msg(q, ctx,
             "⚔️ *هنوز کسی تو بازی نیست که بهش حمله کنی.*\n\n"
             "صبر کن بازیکن‌های دیگه بیان.",
-            parse_mode="Markdown",
-            reply_markup=back_kb()
+            back_kb()
         )
         return ConversationHandler.END
 
@@ -1915,39 +1995,43 @@ async def cb_attack(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )])
     rows.append([InlineKeyboardButton("❌ انصراف", callback_data="menu")])
 
-    await q.edit_message_text(
+    text = (
         f"🎯 *حمله — هدف رو انتخاب کن:*\n\n"
         f"⚔️ قدرت حمله تو: {fmt(compute_army_power(g, 'attack'))}\n"
-        f"🗺️ ✅ = راه داری | 🔒 = راه نداری",
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
+        f"🗺️ ✅ = راه داری | 🔒 = راه نداری"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup(rows))
     return ATTACK_TARGET
 
 
 async def attack_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     target = q.data.replace("atk_", "")
     g = get_game(uid)
 
     can, way = can_attack(g["country"], target)
     if not can:
-        await q.answer(f"❌ {way}", show_alert=True)
+        try:
+            await q.answer(f"❌ {way}", show_alert=True)
+        except:
+            pass
         return ATTACK_TARGET
 
     ctx.user_data["target"] = target
     ctx.user_data["force"] = {"soldiers": 0, "tanks": 0, "planes": 0, "ships": 0}
     c = COUNTRIES[target]
 
-    await q.edit_message_text(
+    text = (
         f"🎯 هدف: {c['flag']} *{c['name']}*\n"
         f"راه: {way}\n\n"
-        f"نیروهات رو مشخص کن. روی هر واحد بزن تا تعداد بپرسه:",
-        reply_markup=attack_force_kb(ctx.user_data["force"]),
-        parse_mode="Markdown"
+        f"نیروهات رو مشخص کن. روی هر واحد بزن تا تعداد بپرسه:"
     )
+    await new_msg(q, ctx, text, attack_force_kb(ctx.user_data["force"]))
     return ATTACK_FORCE
 
 
@@ -1964,7 +2048,10 @@ def attack_force_kb(force):
 
 async def attack_pick_unit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     field = q.data.replace("af_", "")
     ctx.user_data["picking_field"] = field
 
@@ -1973,13 +2060,12 @@ async def attack_pick_unit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     total = compute_total_units(g)
     have = total.get(field, 0)
 
-    await q.edit_message_text(
+    text = (
         f"🔢 چند تا *{field}* رو بفرستی؟\n\n"
         f"تو {have} تا داری.\n"
-        f"عدد بفرست:",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 برگشت", callback_data="af_back")]])
+        f"عدد بفرست:"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup([[InlineKeyboardButton("🔙 برگشت", callback_data="af_back")]]))
     return ATTACK_QTY
 
 
@@ -2022,13 +2108,13 @@ async def attack_qty(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def af_back(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     c = COUNTRIES[ctx.user_data["target"]]
-    await q.edit_message_text(
-        f"🎯 هدف: {c['flag']} *{c['name']}*\n\nنیروهات رو تنظیم کن:",
-        reply_markup=attack_force_kb(ctx.user_data["force"]),
-        parse_mode="Markdown"
-    )
+    text = f"🎯 هدف: {c['flag']} *{c['name']}*\n\nنیروهات رو تنظیم کن:"
+    await new_msg(q, ctx, text, attack_force_kb(ctx.user_data["force"]))
     return ATTACK_FORCE
 
 
@@ -2056,14 +2142,20 @@ def compute_attack_cost(g, target_key, force):
 # ═══════════════════════════════════════════════════════════════
 async def attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     g = get_game(uid)
     force = ctx.user_data.get("force", {})
     target = ctx.user_data.get("target")
 
     if sum(force.values()) == 0:
-        await q.answer("❌ حداقل یه واحد انتخاب کن.", show_alert=True)
+        try:
+            await q.answer("❌ حداقل یه واحد انتخاب کن.", show_alert=True)
+        except:
+            pass
         return ATTACK_FORCE
 
     can, way = can_attack(g["country"], target)
@@ -2071,23 +2163,35 @@ async def attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         total_transport = force["soldiers"] + force["tanks"]
         ship_capacity = force["ships"] * SHIP_CAPACITY
         if total_transport > ship_capacity:
-            await q.answer(
-                f"❌ کشتی کافی نداری!\nنیاز: {(total_transport + SHIP_CAPACITY - 1) // SHIP_CAPACITY} کشتی\n"
-                f"داری: {force['ships']}",
-                show_alert=True
-            )
+            try:
+                await q.answer(
+                    f"❌ کشتی کافی نداری!\nنیاز: {(total_transport + SHIP_CAPACITY - 1) // SHIP_CAPACITY} کشتی\n"
+                    f"داری: {force['ships']}",
+                    show_alert=True
+                )
+            except:
+                pass
             return ATTACK_FORCE
 
     cost = compute_attack_cost(g, target, force)
 
     if g["money"] < cost["money"]:
-        await q.answer(f"❌ پول کافی نداری! نیاز: {fmt(cost['money'])}", show_alert=True)
+        try:
+            await q.answer(f"❌ پول کافی نداری! نیاز: {fmt(cost['money'])}", show_alert=True)
+        except:
+            pass
         return ATTACK_FORCE
     if g["oil"] < cost["oil"]:
-        await q.answer(f"❌ نفت کافی نداری! نیاز: {fmt(cost['oil'])}", show_alert=True)
+        try:
+            await q.answer(f"❌ نفت کافی نداری! نیاز: {fmt(cost['oil'])}", show_alert=True)
+        except:
+            pass
         return ATTACK_FORCE
     if g["food"] < cost["food"]:
-        await q.answer(f"❌ غذا کافی نداری! نیاز: {fmt(cost['food'])}", show_alert=True)
+        try:
+            await q.answer(f"❌ غذا کافی نداری! نیاز: {fmt(cost['food'])}", show_alert=True)
+        except:
+            pass
         return ATTACK_FORCE
 
     save_game(uid,
@@ -2196,7 +2300,7 @@ async def attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 [menu_btn()],
             ])
 
-        await q.message.reply_text(result, reply_markup=kb, parse_mode="Markdown")
+        await new_msg(q, ctx, result, kb)
 
     else:
         losses = {f: int(force.get(f, 0) * random.uniform(0.3, 0.6)) for f in force}
@@ -2231,14 +2335,17 @@ async def attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             f"دفاع دشمن: {fmt(enemy_def)}\n\n"
             f"تلفات سنگین:\n🪖 {losses.get('soldiers',0)}  🛡️ {losses.get('tanks',0)}  ✈️ {losses.get('planes',0)}  🚢 {losses.get('ships',0)}"
         )
-        await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
+        await new_msg(q, ctx, result, back_kb())
 
     return ConversationHandler.END
 
 
 async def cb_colony(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     target = q.data.replace("colony_", "")
     g = get_game(uid)
@@ -2248,10 +2355,9 @@ async def cb_colony(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     save_game(uid, colonies=json.dumps(colonies))
     c = COUNTRIES[target]
 
-    await q.message.reply_text(
+    await new_msg(q, ctx,
         f"🏝️ {c['flag']} {c['name']} مستعمره شد!\n\n+۵۰٪ تولیدش به تو می‌رسه.",
-        reply_markup=main_menu_kb(),
-        parse_mode="Markdown"
+        main_menu_kb()
     )
 
 
@@ -2260,16 +2366,16 @@ async def cb_colony(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════════════════════════════════════════════
 async def cb_spy(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     g = get_game(uid)
     players = get_active_players(exclude_uid=uid)
 
     if not players:
-        await q.edit_message_text(
-            "🕵️ *هنوز بازیکن دیگه‌ای نیست.*",
-            reply_markup=back_kb(), parse_mode="Markdown"
-        )
+        await new_msg(q, ctx, "🕵️ *هنوز بازیکن دیگه‌ای نیست.*", back_kb())
         return
 
     rows = []
@@ -2281,25 +2387,30 @@ async def cb_spy(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )])
     rows.append([menu_btn()])
 
-    await q.edit_message_text(
+    text = (
         f"🕵️ *جاسوسی*\n\n"
         f"هزینه: ۵۰💰\n"
         f"شانس لو رفتن: ۴۰٪\n\n"
-        f"هدف رو انتخاب کن:",
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
+        f"هدف رو انتخاب کن:"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup(rows))
 
 
 async def cb_spy_do(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     target = q.data.replace("spy_", "")
     g = get_game(uid)
 
     if g["money"] < 50:
-        await q.answer("❌ ۵۰ پول لازمه.", show_alert=True)
+        try:
+            await q.answer("❌ ۵۰ پول لازمه.", show_alert=True)
+        except:
+            pass
         return
 
     save_game(uid, money=g["money"] - 50)
@@ -2334,7 +2445,7 @@ async def cb_spy_do(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         else:
             result = f"✅ *موفق!*\n\nاطلاعات {COUNTRIES[target]['name']} به دست اومد."
 
-    await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
+    await new_msg(q, ctx, result, back_kb())
     # ═══════════════════════════════════════════════════════════════
 #  🤝 دیپلماسی
 # ═══════════════════════════════════════════════════════════════
@@ -2353,7 +2464,10 @@ DIP_TALK_MSG = 40
 
 async def cb_dip(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
 
     allies = json.loads(g["allies"] or "[]")
@@ -2377,7 +2491,7 @@ async def cb_dip(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💬 مذاکره خصوصی", callback_data="dip_talk")],
         [menu_btn()],
     ])
-    await q.edit_message_text(text, reply_markup=kb, parse_mode="Markdown")
+    await new_msg(q, ctx, text, kb)
 
 
 async def _dip_pick_target(update, ctx, kind):
@@ -2386,10 +2500,7 @@ async def _dip_pick_target(update, ctx, kind):
     players = get_active_players(exclude_uid=uid)
 
     if not players:
-        await q.edit_message_text(
-            "🤝 *هنوز بازیکن دیگه‌ای نیست.*",
-            reply_markup=back_kb(), parse_mode="Markdown"
-        )
+        await new_msg(q, ctx, "🤝 *هنوز بازیکن دیگه‌ای نیست.*", back_kb())
         return
 
     rows = []
@@ -2401,58 +2512,79 @@ async def _dip_pick_target(update, ctx, kind):
         )])
     rows.append([InlineKeyboardButton("🔙 بازگشت", callback_data="dip")])
 
-    await q.edit_message_text(
-        f"🎯 *{DIP_TYPES.get(kind, kind)}* — کشور هدف:",
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
-    )
+    text = f"🎯 *{DIP_TYPES.get(kind, kind)}* — کشور هدف:"
+    await new_msg(q, ctx, text, InlineKeyboardMarkup(rows))
 
 
 async def cb_dip_ally(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     await _dip_pick_target(update, ctx, "ally")
 
 
 async def cb_dip_peace(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     await _dip_pick_target(update, ctx, "peace")
 
 
 async def cb_dip_war(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     await _dip_pick_target(update, ctx, "war")
 
 
 async def cb_dip_nap(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     await _dip_pick_target(update, ctx, "nap")
 
 
 async def cb_dip_tech(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     await _dip_pick_target(update, ctx, "tech")
 
 
 async def cb_dip_trade(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     await _dip_pick_target(update, ctx, "trade")
 
 
 async def cb_dip_talk(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     await _dip_pick_target(update, ctx, "talk")
 
 
 async def cb_dip_confirm(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     parts = q.data.split("_", 2)
     kind = parts[1]
@@ -2462,9 +2594,7 @@ async def cb_dip_confirm(update, ctx):
 
     target_uid = find_player_by_country(target_key)
     if not target_uid or is_npc(target_uid):
-        await q.edit_message_text(
-            f"🤖 {c['name']} بازیکن نداره.", reply_markup=back_kb()
-        )
+        await new_msg(q, ctx, f"🤖 {c['name']} بازیکن نداره.", back_kb())
         return
 
     if kind == "war":
@@ -2478,11 +2608,11 @@ async def cb_dip_confirm(update, ctx):
             t_wars.append(g["country"])
             save_game(target_uid, wars=json.dumps(t_wars))
 
-        await q.message.reply_text(
+        await new_msg(q, ctx,
             f"⚔️ *جنگ اعلام شد!*\n\n"
             f"{COUNTRIES[g['country']]['flag']} {COUNTRIES[g['country']]['name']} "
             f"به {c['flag']} {c['name']} اعلام جنگ کرد.",
-            reply_markup=back_kb(), parse_mode="Markdown"
+            back_kb()
         )
         try:
             await ctx.bot.send_message(
@@ -2498,10 +2628,9 @@ async def cb_dip_confirm(update, ctx):
     if kind == "talk":
         ctx.user_data["talk_target"] = target_uid
         ctx.user_data["talk_country"] = target_key
-        await q.edit_message_text(
+        await new_msg(q, ctx,
             f"💬 *مذاکره با {c['flag']} {c['name']}*\n\nپیامت رو بنویس:",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="dip")]]),
-            parse_mode="Markdown"
+            InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="dip")]])
         )
         return DIP_TALK_MSG
 
@@ -2517,18 +2646,21 @@ async def cb_dip_confirm(update, ctx):
                 [InlineKeyboardButton("❌ رد", callback_data=f"diprej_{kind}_{uid}")],
             ])
         )
-        await q.message.reply_text(
+        await new_msg(q, ctx,
             f"📤 درخواست *{DIP_TYPES[kind]}* به {c['flag']} {c['name']} فرستاده شد.",
-            reply_markup=back_kb(), parse_mode="Markdown"
+            back_kb()
         )
     except Exception as e:
         log.warning(f"خطا: {e}")
-        await q.message.reply_text(f"❌ خطا در ارسال.", reply_markup=back_kb())
+        await new_msg(q, ctx, "❌ خطا در ارسال.", back_kb())
 
 
 async def cb_dip_accept(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     parts = q.data.split("_", 2)
     kind = parts[1]
@@ -2536,7 +2668,7 @@ async def cb_dip_accept(update, ctx):
     g_from = get_game(from_uid)
     g_me = get_game(uid)
     if not g_from or not g_me:
-        await q.edit_message_text("خطا.")
+        await new_msg(q, ctx, "خطا.", back_kb())
         return
 
     my_country = g_me["country"]
@@ -2561,7 +2693,7 @@ async def cb_dip_accept(update, ctx):
             wars_from.remove(my_country)
             save_game(from_uid, wars=json.dumps(wars_from))
 
-    await q.edit_message_text(f"✅ درخواست *{DIP_TYPES[kind]}* رو قبول کردی.", parse_mode="Markdown")
+    await new_msg(q, ctx, f"✅ درخواست *{DIP_TYPES[kind]}* رو قبول کردی.", back_kb())
     try:
         await ctx.bot.send_message(
             from_uid,
@@ -2575,13 +2707,16 @@ async def cb_dip_accept(update, ctx):
 
 async def cb_dip_reject(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     parts = q.data.split("_", 2)
     kind = parts[1]
     from_uid = int(parts[2])
     g_me = get_game(uid)
-    await q.edit_message_text(f"❌ درخواست *{DIP_TYPES[kind]}* رو رد کردی.", parse_mode="Markdown")
+    await new_msg(q, ctx, f"❌ درخواست *{DIP_TYPES[kind]}* رو رد کردی.", back_kb())
     try:
         await ctx.bot.send_message(
             from_uid,
@@ -2628,17 +2763,20 @@ async def dip_talk_send(update, ctx):
 
 async def cb_talk_reply(update, ctx):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     target_uid = int(q.data.replace("talkreply_", ""))
     g_target = get_game(target_uid)
     if not g_target:
-        await q.edit_message_text("کاربر پیدا نشد.")
+        await new_msg(q, ctx, "کاربر پیدا نشد.", back_kb())
         return
     ctx.user_data["talk_target"] = target_uid
     ctx.user_data["talk_country"] = g_target["country"]
-    await q.edit_message_text(
+    await new_msg(q, ctx,
         "↩️ پیامت رو بنویس:",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="menu")]])
+        InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="menu")]])
     )
     return DIP_TALK_MSG
 
@@ -2660,7 +2798,10 @@ RESOURCES = {
 
 async def cb_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     g = get_game(q.from_user.id)
     text = (
         f"📦 *تجارت*\n"
@@ -2672,22 +2813,24 @@ async def cb_trade(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     rows = [[InlineKeyboardButton(label, callback_data=f"tp_{key}")]
             for key, label in RESOURCES.items()]
     rows.append([menu_btn()])
-    await q.edit_message_text(text, reply_markup=InlineKeyboardMarkup(rows), parse_mode="Markdown")
+    await new_msg(q, ctx, text, InlineKeyboardMarkup(rows))
     return TRADE_PICK_TYPE
 
 
 async def trade_pick_type(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     res = q.data.replace("tp_", "")
     ctx.user_data["trade_res"] = res
     g = get_game(q.from_user.id)
-    await q.edit_message_text(
+    text = (
         f"🔢 چند تا *{RESOURCES[res]}* بدی؟\n\n"
-        f"تو {fmt(g[res])} تا داری.\nعدد بفرست:",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="trade")]])
+        f"تو {fmt(g[res])} تا داری.\nعدد بفرست:"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup([[InlineKeyboardButton("❌ انصراف", callback_data="trade")]]))
     return TRADE_PICK_AMOUNT
 
 
@@ -2708,29 +2851,30 @@ async def trade_pick_amount(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return TRADE_PICK_AMOUNT
 
     ctx.user_data["trade_amount"] = amount
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton(label, callback_data=f"tw_{key}")]
+        for key, label in RESOURCES.items()
+    ] + [[InlineKeyboardButton("❌ انصراف", callback_data="trade")]])
     await update.message.reply_text(
         f"✅ {amount} {RESOURCES[res]} انتخاب شد.\n\nدر ازای چی می‌خوای؟",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton(label, callback_data=f"tw_{key}")]
-            for key, label in RESOURCES.items()
-        ] + [[InlineKeyboardButton("❌ انصراف", callback_data="trade")]])
+        reply_markup=kb
     )
     return TRADE_PICK_WANT
 
 
 async def trade_pick_want(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     want = q.data.replace("tw_", "")
     ctx.user_data["trade_want"] = want
     uid = q.from_user.id
 
     players = get_active_players(exclude_uid=uid)
     if not players:
-        await q.edit_message_text(
-            "📦 *هنوز بازیکن دیگه‌ای نیست.*",
-            reply_markup=back_kb(), parse_mode="Markdown"
-        )
+        await new_msg(q, ctx, "📦 *هنوز بازیکن دیگه‌ای نیست.*", back_kb())
         return ConversationHandler.END
 
     rows = []
@@ -2742,17 +2886,16 @@ async def trade_pick_want(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )])
     rows.append([menu_btn()])
 
-    await q.edit_message_text(
-        "🎯 طرف مقابل رو انتخاب کن:",
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
-    )
+    await new_msg(q, ctx, "🎯 طرف مقابل رو انتخاب کن:", InlineKeyboardMarkup(rows))
     return ConversationHandler.END
 
 
 async def cb_trade_send(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     target_key = q.data.replace("tt_", "")
     uid = q.from_user.id
     g = get_game(uid)
@@ -2762,7 +2905,7 @@ async def cb_trade_send(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     target_uid = find_player_by_country(target_key)
 
     if not target_uid or is_npc(target_uid):
-        await q.edit_message_text("❌ بازیکن پیدا نشد.", reply_markup=back_kb())
+        await new_msg(q, ctx, "❌ بازیکن پیدا نشد.", back_kb())
         return
 
     c = COUNTRIES[target_key]
@@ -2779,19 +2922,22 @@ async def cb_trade_send(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("❌ رد", callback_data=f"traderej_{uid}")],
             ])
         )
-        await q.message.reply_text(
+        await new_msg(q, ctx,
             f"📤 پیشنهاد تجاری به {c['flag']} {c['name']} فرستاده شد.\n"
             f"منتظر پاسخ باش.",
-            reply_markup=back_kb(), parse_mode="Markdown"
+            back_kb()
         )
     except Exception as e:
         log.warning(f"خطا: {e}")
-        await q.message.reply_text("❌ خطا.", reply_markup=back_kb())
+        await new_msg(q, ctx, "❌ خطا.", back_kb())
 
 
 async def cb_trade_accept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     parts = q.data.split("_")
     from_uid = int(parts[1])
@@ -2802,17 +2948,17 @@ async def cb_trade_accept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     g_from = get_game(from_uid)
     g_me = get_game(uid)
     if not g_from or not g_me:
-        await q.edit_message_text("خطا.")
+        await new_msg(q, ctx, "خطا.", back_kb())
         return
 
     if g_from[res] < amount or g_me[want] < amount:
-        await q.edit_message_text("❌ یکی از طرفین منابع کافی نداره.")
+        await new_msg(q, ctx, "❌ یکی از طرفین منابع کافی نداره.", back_kb())
         return
 
     save_game(from_uid, **{res: g_from[res] - amount, want: g_from[want] + amount})
     save_game(uid, **{res: g_me[res] + amount, want: g_me[want] - amount})
 
-    await q.edit_message_text("✅ معامله انجام شد!", parse_mode="Markdown")
+    await new_msg(q, ctx, "✅ معامله انجام شد!", back_kb())
     try:
         await ctx.bot.send_message(from_uid, f"✅ معامله با {COUNTRIES[g_me['country']]['name']} انجام شد.")
     except:
@@ -2821,10 +2967,13 @@ async def cb_trade_accept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cb_trade_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     from_uid = int(q.data.replace("traderej_", ""))
     g_me = get_game(q.from_user.id)
-    await q.edit_message_text("❌ رد کردی.")
+    await new_msg(q, ctx, "❌ رد کردی.", back_kb())
     try:
         await ctx.bot.send_message(from_uid, f"❌ {COUNTRIES[g_me['country']]['name']} معامله رو رد کرد.")
     except:
@@ -2836,16 +2985,25 @@ async def cb_trade_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════════════════════════════════════════════
 async def cb_atom_use(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     g = get_game(uid)
     completed = json.loads(g["completed_projects"] or "[]")
 
     if "atomic_bomb" not in completed:
-        await q.answer("❌ هنوز بمب اتم نساختی!", show_alert=True)
+        try:
+            await q.answer("❌ هنوز بمب اتم نساختی!", show_alert=True)
+        except:
+            pass
         return
     if g.get("atomic_ready") and g["atomic_ready"] >= 1:
-        await q.answer("❌ بمب اتم قبلاً استفاده شده!", show_alert=True)
+        try:
+            await q.answer("❌ بمب اتم قبلاً استفاده شده!", show_alert=True)
+        except:
+            pass
         return
 
     players = get_active_players(exclude_uid=uid)
@@ -2858,26 +3016,28 @@ async def cb_atom_use(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )])
     rows.append([menu_btn()])
 
-    await q.edit_message_text(
+    text = (
         "☢️ *استفاده از بمب اتم*\n\n"
         "⚠️ فقط یه بار! ۵۰٪ به هدف آسیب می‌زنه.\n"
         "⚠️ عوارض: ۳۰٪ رضایت کم، رقابت اتمی شروع میشه.\n\n"
-        "کشور هدف رو انتخاب کن:",
-        reply_markup=InlineKeyboardMarkup(rows),
-        parse_mode="Markdown"
+        "کشور هدف رو انتخاب کن:"
     )
+    await new_msg(q, ctx, text, InlineKeyboardMarkup(rows))
 
 
 async def cb_atom_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
+    try:
+        await q.answer()
+    except:
+        pass
     uid = q.from_user.id
     target = q.data.replace("atom_", "")
     g = get_game(uid)
     target_uid = find_player_by_country(target)
 
     if not target_uid:
-        await q.edit_message_text("❌ بازیکن پیدا نشد.", reply_markup=back_kb())
+        await new_msg(q, ctx, "❌ بازیکن پیدا نشد.", back_kb())
         return
 
     c = COUNTRIES[target]
@@ -2912,7 +3072,7 @@ async def cb_atom_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"🌍 رقابت اتمی شروع شد — بقیه کشورها حالا می‌تونن بمب اتم بسازن."
     )
 
-    await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
+    await new_msg(q, ctx, result, back_kb())
 
     try:
         await ctx.bot.send_message(
@@ -3114,6 +3274,7 @@ def main():
 
     app = Application.builder().token(BOT_TOKEN).base_url(BALE_API).build()
 
+    # ─── Commands ─────────────────────────────────
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("menu", cmd_menu))
     app.add_handler(CommandHandler("next_turn", cmd_next_turn))
@@ -3121,6 +3282,7 @@ def main():
     app.add_handler(CommandHandler("give", cmd_give))
     app.add_handler(CommandHandler("players", cmd_players))
 
+    # ─── عضویت اجباری ─────────────────────────────
     app.add_handler(MessageHandler(
         filters.TEXT & filters.Regex("^عضو شدم ✅$"),
         on_joined_check
@@ -3129,11 +3291,14 @@ def main():
         filters.TEXT & filters.Regex("^🎮 منو$"),
         cmd_menu
     ))
+
+    # ─── اطلاعات [کشور] برای ادمین ────────────────
     app.add_handler(MessageHandler(
         filters.TEXT & filters.Regex("^اطلاعات "),
         cmd_country_info
     ))
 
+    # ─── ConversationHandler: خرید سرباز ──────────
     buy_soldier_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(buy_soldier_start, pattern="^buy_soldier$")],
         states={BUY_SOLDIER_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_soldier_qty)]},
@@ -3142,6 +3307,7 @@ def main():
     )
     app.add_handler(buy_soldier_conv)
 
+    # ─── ConversationHandler: خرید تانک ───────────
     buy_tank_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(buy_tank_start, pattern="^buy_tank$"),
@@ -3156,6 +3322,7 @@ def main():
     )
     app.add_handler(buy_tank_conv)
 
+    # ─── ConversationHandler: خرید هواپیما ────────
     buy_plane_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(buy_plane_start, pattern="^buy_plane$"),
@@ -3170,6 +3337,7 @@ def main():
     )
     app.add_handler(buy_plane_conv)
 
+    # ─── ConversationHandler: خرید کشتی ───────────
     buy_ship_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(buy_ship_start, pattern="^buy_ship$"),
@@ -3184,6 +3352,7 @@ def main():
     )
     app.add_handler(buy_ship_conv)
 
+    # ─── ConversationHandler: مالیات ──────────────
     tax_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_tax, pattern="^tax$")],
         states={TAX_INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, tax_set)]},
@@ -3192,6 +3361,7 @@ def main():
     )
     app.add_handler(tax_conv)
 
+    # ─── ConversationHandler: حمله ────────────────
     attack_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_attack, pattern="^attack$")],
         states={
@@ -3214,6 +3384,7 @@ def main():
     )
     app.add_handler(attack_conv)
 
+    # ─── ConversationHandler: مذاکره ──────────────
     talk_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(cb_dip_confirm, pattern="^dipt_talk_"),
@@ -3226,6 +3397,7 @@ def main():
     )
     app.add_handler(talk_conv)
 
+    # ─── ConversationHandler: تجارت ───────────────
     trade_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_trade, pattern="^trade$")],
         states={
@@ -3239,6 +3411,7 @@ def main():
     )
     app.add_handler(trade_conv)
 
+    # ─── Callbacks عمومی ──────────────────────────
     app.add_handler(CallbackQueryHandler(cb_newgame, pattern="^newgame$"))
     app.add_handler(CallbackQueryHandler(cb_pick_country, pattern="^pick_"))
     app.add_handler(CallbackQueryHandler(cb_menu, pattern="^menu$"))
@@ -3257,6 +3430,7 @@ def main():
     app.add_handler(CallbackQueryHandler(cb_help, pattern="^help$"))
     app.add_handler(CallbackQueryHandler(cb_colony, pattern="^colony_"))
 
+    # ─── دیپلماسی ─────────────────────────────────
     app.add_handler(CallbackQueryHandler(cb_dip, pattern="^dip$"))
     app.add_handler(CallbackQueryHandler(cb_dip_ally, pattern="^dip_ally$"))
     app.add_handler(CallbackQueryHandler(cb_dip_peace, pattern="^dip_peace$"))
@@ -3269,207 +3443,16 @@ def main():
     app.add_handler(CallbackQueryHandler(cb_dip_reject, pattern="^diprej_"))
     app.add_handler(CallbackQueryHandler(cb_dip_confirm, pattern="^dipt_(?!talk_)"))
 
+    # ─── تجارت ────────────────────────────────────
     app.add_handler(CallbackQueryHandler(cb_trade_send, pattern="^tt_"))
     app.add_handler(CallbackQueryHandler(cb_trade_accept, pattern="^tradeacc_"))
     app.add_handler(CallbackQueryHandler(cb_trade_reject, pattern="^traderej_"))
 
+    # ─── بمب اتم ──────────────────────────────────
     app.add_handler(CallbackQueryHandler(cb_atom_use, pattern="^atom_use$"))
     app.add_handler(CallbackQueryHandler(cb_atom_target, pattern="^atom_"))
 
-    if app.job_queue:
-        app.job_queue.run_repeating(auto_turn_job, interval=3600, first=120)
-        print("⏰ نوبت خودکار فعال شد (هر ۱ ساعت)")
-
-    print("🎖️ ربات جنگ جهانی دوم در حال اجراست...")
-    print("📅 شروع: ۱ سپتامبر ۱۹۳۹")
-    print("🏁 پایان: ۲ سپتامبر ۱۹۴۵")
-    print("⏰ هر نوبت: ۳ روز بازی | هر ۱ ساعت واقعی")
-    app.run_polling()
-
-async def smart_send(q, ctx, text, kb=None):
-    try:
-        await q.edit_message_text(text, reply_markup=kb, parse_mode="Markdown")
-    except:
-        try:
-            await ctx.bot.send_message(chat_id=q.from_user.id, text=text, reply_markup=kb, parse_mode="Markdown")
-        except:
-            pass
-
-
-def main():
-    init_db()
-    ensure_npcs_exist()
-
-    if "توکن" in BOT_TOKEN or not BOT_TOKEN:
-        print("❌ توکن ربات تنظیم نشده!")
-        return
-
-    keep_alive()
-
-    app = Application.builder().token(BOT_TOKEN).base_url(BALE_API).build()
-
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("menu", cmd_menu))
-    app.add_handler(CommandHandler("next_turn", cmd_next_turn))
-    app.add_handler(CommandHandler("admin", cmd_admin))
-    app.add_handler(CommandHandler("give", cmd_give))
-    app.add_handler(CommandHandler("players", cmd_players))
-
-    app.add_handler(MessageHandler(
-        filters.TEXT & filters.Regex("^عضو شدم ✅$"),
-        on_joined_check
-    ))
-    app.add_handler(MessageHandler(
-        filters.TEXT & filters.Regex("^🎮 منو$"),
-        cmd_menu
-    ))
-    app.add_handler(MessageHandler(
-        filters.TEXT & filters.Regex("^اطلاعات "),
-        cmd_country_info
-    ))
-
-    buy_soldier_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(buy_soldier_start, pattern="^buy_soldier$")],
-        states={BUY_SOLDIER_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_soldier_qty)]},
-        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
-        per_user=True,
-    )
-    app.add_handler(buy_soldier_conv)
-
-    buy_tank_conv = ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(buy_tank_start, pattern="^buy_tank$"),
-            CallbackQueryHandler(buytank_pick, pattern="^buytank_"),
-        ],
-        states={
-            BUY_TANK_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buytank_qty)],
-        },
-        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
-        per_user=True,
-        allow_reentry=True,
-    )
-    app.add_handler(buy_tank_conv)
-
-    buy_plane_conv = ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(buy_plane_start, pattern="^buy_plane$"),
-            CallbackQueryHandler(buyplane_pick, pattern="^buyplane_"),
-        ],
-        states={
-            BUY_PLANE_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buyplane_qty)],
-        },
-        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
-        per_user=True,
-        allow_reentry=True,
-    )
-    app.add_handler(buy_plane_conv)
-
-    buy_ship_conv = ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(buy_ship_start, pattern="^buy_ship$"),
-            CallbackQueryHandler(buyship_pick, pattern="^buyship_"),
-        ],
-        states={
-            BUY_SHIP_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, buyship_qty)],
-        },
-        fallbacks=[CallbackQueryHandler(cb_army, pattern="^army$")],
-        per_user=True,
-        allow_reentry=True,
-    )
-    app.add_handler(buy_ship_conv)
-
-    tax_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(cb_tax, pattern="^tax$")],
-        states={TAX_INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, tax_set)]},
-        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
-        per_user=True,
-    )
-    app.add_handler(tax_conv)
-
-    attack_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(cb_attack, pattern="^attack$")],
-        states={
-            ATTACK_TARGET: [
-                CallbackQueryHandler(attack_target, pattern="^atk_"),
-            ],
-            ATTACK_FORCE: [
-                CallbackQueryHandler(attack_pick_unit, pattern="^af_(soldiers|tanks|planes|ships)$"),
-                CallbackQueryHandler(af_back, pattern="^af_back$"),
-                CallbackQueryHandler(attack_go, pattern="^af_go$"),
-            ],
-            ATTACK_QTY: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, attack_qty),
-                CallbackQueryHandler(af_back, pattern="^af_back$"),
-            ],
-        },
-        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
-        per_user=True,
-        allow_reentry=True,
-    )
-    app.add_handler(attack_conv)
-
-    talk_conv = ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(cb_dip_confirm, pattern="^dipt_talk_"),
-            CallbackQueryHandler(cb_talk_reply, pattern="^talkreply_"),
-        ],
-        states={DIP_TALK_MSG: [MessageHandler(filters.TEXT & ~filters.COMMAND, dip_talk_send)]},
-        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
-        per_user=True,
-        allow_reentry=True,
-    )
-    app.add_handler(talk_conv)
-
-    trade_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(cb_trade, pattern="^trade$")],
-        states={
-            TRADE_PICK_TYPE: [CallbackQueryHandler(trade_pick_type, pattern="^tp_")],
-            TRADE_PICK_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, trade_pick_amount)],
-            TRADE_PICK_WANT: [CallbackQueryHandler(trade_pick_want, pattern="^tw_")],
-        },
-        fallbacks=[CallbackQueryHandler(cb_menu, pattern="^menu$")],
-        per_user=True,
-        allow_reentry=True,
-    )
-    app.add_handler(trade_conv)
-
-    app.add_handler(CallbackQueryHandler(cb_newgame, pattern="^newgame$"))
-    app.add_handler(CallbackQueryHandler(cb_pick_country, pattern="^pick_"))
-    app.add_handler(CallbackQueryHandler(cb_menu, pattern="^menu$"))
-    app.add_handler(CallbackQueryHandler(cb_eco, pattern="^eco$"))
-    app.add_handler(CallbackQueryHandler(cb_army, pattern="^army$"))
-    app.add_handler(CallbackQueryHandler(cb_res, pattern="^res$"))
-    app.add_handler(CallbackQueryHandler(cb_research, pattern="^res_"))
-    app.add_handler(CallbackQueryHandler(cb_proj, pattern="^proj$"))
-    app.add_handler(CallbackQueryHandler(cb_build, pattern="^build_"))
-    app.add_handler(CallbackQueryHandler(cb_internal, pattern="^internal$"))
-    app.add_handler(CallbackQueryHandler(cb_speech, pattern="^speech$"))
-    app.add_handler(CallbackQueryHandler(cb_suppress, pattern="^suppress$"))
-    app.add_handler(CallbackQueryHandler(cb_spy, pattern="^spy$"))
-    app.add_handler(CallbackQueryHandler(cb_spy_do, pattern="^spy_"))
-    app.add_handler(CallbackQueryHandler(cb_stats, pattern="^stats$"))
-    app.add_handler(CallbackQueryHandler(cb_help, pattern="^help$"))
-    app.add_handler(CallbackQueryHandler(cb_colony, pattern="^colony_"))
-
-    app.add_handler(CallbackQueryHandler(cb_dip, pattern="^dip$"))
-    app.add_handler(CallbackQueryHandler(cb_dip_ally, pattern="^dip_ally$"))
-    app.add_handler(CallbackQueryHandler(cb_dip_peace, pattern="^dip_peace$"))
-    app.add_handler(CallbackQueryHandler(cb_dip_war, pattern="^dip_war$"))
-    app.add_handler(CallbackQueryHandler(cb_dip_nap, pattern="^dip_nap$"))
-    app.add_handler(CallbackQueryHandler(cb_dip_tech, pattern="^dip_tech$"))
-    app.add_handler(CallbackQueryHandler(cb_dip_trade, pattern="^dip_trade$"))
-    app.add_handler(CallbackQueryHandler(cb_dip_talk, pattern="^dip_talk$"))
-    app.add_handler(CallbackQueryHandler(cb_dip_accept, pattern="^dipacc_"))
-    app.add_handler(CallbackQueryHandler(cb_dip_reject, pattern="^diprej_"))
-    app.add_handler(CallbackQueryHandler(cb_dip_confirm, pattern="^dipt_(?!talk_)"))
-
-    app.add_handler(CallbackQueryHandler(cb_trade_send, pattern="^tt_"))
-    app.add_handler(CallbackQueryHandler(cb_trade_accept, pattern="^tradeacc_"))
-    app.add_handler(CallbackQueryHandler(cb_trade_reject, pattern="^traderej_"))
-
-    app.add_handler(CallbackQueryHandler(cb_atom_use, pattern="^atom_use$"))
-    app.add_handler(CallbackQueryHandler(cb_atom_target, pattern="^atom_"))
-
+    # ─── JobQueue: نوبت خودکار هر ۱ ساعت ──────────
     if app.job_queue:
         app.job_queue.run_repeating(auto_turn_job, interval=3600, first=120)
         print("⏰ نوبت خودکار فعال شد (هر ۱ ساعت)")
