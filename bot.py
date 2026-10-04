@@ -364,7 +364,7 @@ def get_active_players(exclude_uid=None):
             continue
         result.append({"user_id": r["user_id"], "country": r["country"]})
     return result
-# ═══════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════
 #  📅 توابع تاریخ
 # ═══════════════════════════════════════════════════════════════
 def parse_game_date(date_str):
@@ -864,7 +864,7 @@ async def send_join_message(update, ctx):
     )
     await update.message.reply_text(text, reply_markup=join_message_kb(), parse_mode="Markdown")
     await update.message.reply_text("👇 وقتی عضو شدی این دکمه رو بزن:", reply_markup=join_reply_kb())
-# ═══════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════
 #  🎨 کیبوردها
 # ═══════════════════════════════════════════════════════════════
 def menu_btn():
@@ -1057,11 +1057,6 @@ async def cb_pick_country(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_kb(),
         parse_mode="Markdown"
     )
-    await q.edit_message_text(
-        f"🎖️ *بازی شروع شد!*\n"
-        f"کشورت: {c['flag']} {c['name']}",
-        parse_mode="Markdown"
-    )
 
 
 async def cb_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1106,7 +1101,7 @@ async def cb_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         reply_markup=back_kb(),
         parse_mode="Markdown"
     )
-# ═══════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════
 #  💰 اقتصاد
 # ═══════════════════════════════════════════════════════════════
 async def cb_eco(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1266,10 +1261,6 @@ async def cb_speech(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_kb(),
         parse_mode="Markdown"
     )
-    await q.edit_message_text(
-        "📢 سخنرانی شروع شد — بالا ببین ⬆️",
-        reply_markup=back_kb()
-    )
 
 
 async def cb_suppress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -1296,10 +1287,6 @@ async def cb_suppress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "+۱۰ رضایت فوری (ولی بعد ۳ نوبت -۵ رضایت پایه)",
         reply_markup=main_menu_kb(),
         parse_mode="Markdown"
-    )
-    await q.edit_message_text(
-        "🚔 سرکوب شد — بالا ببین ⬆️",
-        reply_markup=back_kb()
     )
 
 
@@ -1724,7 +1711,7 @@ async def buyship_qty(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_kb()
     )
     return ConversationHandler.END
-# ═══════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════
 #  🔬 تحقیقات
 # ═══════════════════════════════════════════════════════════════
 async def cb_res(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -2195,10 +2182,6 @@ async def attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             ])
 
         await q.message.reply_text(result, reply_markup=kb, parse_mode="Markdown")
-        await q.edit_message_text(
-            "🎯 نتیجه حمله — بالا ببین ⬆️",
-            reply_markup=back_kb()
-        )
 
     else:
         losses = {f: int(force.get(f, 0) * random.uniform(0.3, 0.6)) for f in force}
@@ -2234,10 +2217,6 @@ async def attack_go(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             f"تلفات سنگین:\n🪖 {losses.get('soldiers',0)}  🛡️ {losses.get('tanks',0)}  ✈️ {losses.get('planes',0)}  🚢 {losses.get('ships',0)}"
         )
         await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
-        await q.edit_message_text(
-            "💀 نتیجه حمله — بالا ببین ⬆️",
-            reply_markup=back_kb()
-        )
 
     return ConversationHandler.END
 
@@ -2258,10 +2237,6 @@ async def cb_colony(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"🏝️ {c['flag']} {c['name']} مستعمره شد!\n\n+۵۰٪ تولیدش به تو می‌رسه.",
         reply_markup=main_menu_kb(),
         parse_mode="Markdown"
-    )
-    await q.edit_message_text(
-        f"🏝️ {c['name']} مستعمره شد — بالا ببین ⬆️",
-        reply_markup=back_kb()
     )
 
 
@@ -2345,11 +2320,7 @@ async def cb_spy_do(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             result = f"✅ *موفق!*\n\nاطلاعات {COUNTRIES[target]['name']} به دست اومد."
 
     await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
-    await q.edit_message_text(
-        "🕵️ نتیجه جاسوسی — بالا ببین ⬆️",
-        reply_markup=back_kb()
-            )
-# ═══════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════
 #  🤝 دیپلماسی
 # ═══════════════════════════════════════════════════════════════
 DIP_TYPES = {
@@ -2498,10 +2469,6 @@ async def cb_dip_confirm(update, ctx):
             f"به {c['flag']} {c['name']} اعلام جنگ کرد.",
             reply_markup=back_kb(), parse_mode="Markdown"
         )
-        await q.edit_message_text(
-            f"⚔️ جنگ با {c['name']} اعلام شد — بالا ببین ⬆️",
-            reply_markup=back_kb()
-        )
         try:
             await ctx.bot.send_message(
                 target_uid,
@@ -2535,13 +2502,13 @@ async def cb_dip_confirm(update, ctx):
                 [InlineKeyboardButton("❌ رد", callback_data=f"diprej_{kind}_{uid}")],
             ])
         )
-        await q.edit_message_text(
+        await q.message.reply_text(
             f"📤 درخواست *{DIP_TYPES[kind]}* به {c['flag']} {c['name']} فرستاده شد.",
             reply_markup=back_kb(), parse_mode="Markdown"
         )
     except Exception as e:
         log.warning(f"خطا: {e}")
-        await q.edit_message_text(f"❌ خطا در ارسال.", reply_markup=back_kb())
+        await q.message.reply_text(f"❌ خطا در ارسال.", reply_markup=back_kb())
 
 
 async def cb_dip_accept(update, ctx):
@@ -2802,13 +2769,9 @@ async def cb_trade_send(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             f"منتظر پاسخ باش.",
             reply_markup=back_kb(), parse_mode="Markdown"
         )
-        await q.edit_message_text(
-            f"📤 پیشنهاد به {c['name']} — بالا ببین ⬆️",
-            reply_markup=back_kb()
-        )
     except Exception as e:
         log.warning(f"خطا: {e}")
-        await q.edit_message_text("❌ خطا.", reply_markup=back_kb())
+        await q.message.reply_text("❌ خطا.", reply_markup=back_kb())
 
 
 async def cb_trade_accept(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -2935,10 +2898,6 @@ async def cb_atom_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
     await q.message.reply_text(result, reply_markup=back_kb(), parse_mode="Markdown")
-    await q.edit_message_text(
-        "☢️ بمب اتم استفاده شد — بالا ببین ⬆️",
-        reply_markup=back_kb()
-    )
 
     try:
         await ctx.bot.send_message(
@@ -2950,7 +2909,7 @@ async def cb_atom_target(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
     except:
         pass
-# ═══════════════════════════════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════════
 #  👑 ادمین
 # ═══════════════════════════════════════════════════════════════
 async def cmd_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -3307,9 +3266,9 @@ def main():
         print("⏰ نوبت خودکار فعال شد (هر ۱ ساعت)")
 
     print("🎖️ ربات جنگ جهانی دوم در حال اجراست...")
-    print(f"📅 شروع: ۱ سپتامبر ۱۹۳۹")
-    print(f"🏁 پایان: ۲ سپتامبر ۱۹۴۵")
-    print(f"⏰ هر نوبت: ۳ روز بازی | هر ۱ ساعت واقعی")
+    print("📅 شروع: ۱ سپتامبر ۱۹۳۹")
+    print("🏁 پایان: ۲ سپتامبر ۱۹۴۵")
+    print("⏰ هر نوبت: ۳ روز بازی | هر ۱ ساعت واقعی")
     app.run_polling()
 
 
