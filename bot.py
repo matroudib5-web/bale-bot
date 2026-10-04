@@ -26,7 +26,7 @@ from keep_alive import keep_alive
 # ═══════════════════════════════════════════════════════════════
 #  ⚙️ تنظیمات اصلی
 # ═══════════════════════════════════════════════════════════════
-BOT_TOKEN = "152004939:gjvarQqggvlUKNXdDBoJPx-mTNcNGPBu0k8"
+BOT_TOKEN = "152004939:-yVJrAHZWHVeopSTZUUltAAIkdjE3f7qNm8"
 BALE_API = "https://tapi.bale.ai/bot"
 
 DB_FILE = "ww2_game.db"
