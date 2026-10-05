@@ -3841,5 +3841,211 @@ def process_turn(uid):
     sset(uid, **upd)
     return {"turn": st["turn"]+1, "date": nd, "ev": ev}
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ ۴ — اتم تو ارتش، بدون منوی جدا
+# ═══════════════════════════════════════════════════════════════
+
+# ─── کیبورد اصلی بدون اتم ───
+def kb_main():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("💰 اقتصاد"),KeyboardButton("⚔️ ارتش")],
+        [KeyboardButton("🔬 تحقیقات"),KeyboardButton("🏭 کارخونه‌ها")],
+        [KeyboardButton("🤝 دیپلماسی"),KeyboardButton("📦 تجارت")],
+        [KeyboardButton("🎯 حمله"),KeyboardButton("🕵️ جاسوسی")],
+        [KeyboardButton("💵 مالیات"),KeyboardButton("🏛️ امور کشور")],
+        [KeyboardButton("📊 آمار کامل")]],resize_keyboard=True)
+
+# ─── کیبورد ارتش داینامیک ───
+def kb_army_for(uid):
+    st = get_state(uid)
+    if not st:
+        return kb_army()
+    rows = [
+        [KeyboardButton("🪖 سرباز"),KeyboardButton("🛡️ تانک")],
+        [KeyboardButton("✈️ جنگنده"),KeyboardButton("🚀 جت")],
+        [KeyboardButton("🚢 کشتی"),KeyboardButton("🎯 موشک")],
+        [KeyboardButton("💣 بمب‌افکن"),KeyboardButton("🛡️ پدافند")],
+        [KeyboardButton("✈️ بمباران"),KeyboardButton("📋 خدمت اجباری")],
+    ]
+    # دکمه اتم - شرط:
+    # ۱. نوبت >= ATOMIC_UNLOCK
+    # ۲. یا کشور آلمان/آمریکا، یا اتم قبلاً استفاده شده
+    turn = st["turn"]
+    can_show = False
+    if turn >= ATOMIC_UNLOCK:
+        if st["country"] in ("germany", "usa"):
+            can_show = True
+        elif gget("atomic_used") == "true":
+            can_show = True
+    if can_show:
+        rows.append([KeyboardButton("☢️ پروژه اتمی")])
+    rows.append([KeyboardButton("🔙 منو")])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+# ─── on_army با کیبورد داینامیک ───
+async def on_army(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    await update.message.reply_text(
+        f"⚔️ *ارتش {COUNTRIES[st['country']]['n']}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"⚔️ قدرت حمله: {fmt(calc_power(uid,'attack'))}\n"
+        f"🛡️ قدرت دفاع: {fmt(calc_power(uid,'defense'))}\n"
+        f"🪖 سرباز: {fmt(st['soldiers'])}\n"
+        f"🛡 پدافند: {fmt(get_aa_power(uid))}",
+        reply_markup=kb_army_for(uid), parse_mode="Markdown")
+
+# ─── on_atomic جدید — بدون شرط ادمین برای باز شدن ───
+async def on_atomic(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    # شرط اصلی: نوبت >= ۱۰۷۷
+    if st["turn"] < ATOMIC_UNLOCK:
+        await update.message.reply_text(
+            f"🔒 *پروژه اتمی*\n\nهنوز باز نشده.\n"
+            f"باز شدن: نوبت {ATOMIC_UNLOCK}\n"
+            f"الان: نوبت {st['turn']}\n"
+            f"مانده: {ATOMIC_UNLOCK - st['turn']} نوبت",
+            parse_mode="Markdown")
+        return
+    # شرط دوم: آلمان/آمریکا یا اولین استفاده شده
+    if st["country"] not in ("germany", "usa") and gget("atomic_used") != "true":
+        await update.message.reply_text(
+            "🔒 این پروژه فقط برای آلمان و آمریکا در دسترس است.\n"
+            "بعد از اولین استفاده در جهان، برای همه باز می‌شود.")
+        return
+    stage = st.get("atomic_stage", 0)
+    if stage >= 3:
+        await update.message.reply_text(
+            f"☢️ *بمب اتمی آماده!*\n"
+            f"تعداد بمب: {st.get('atomic_bombs',0)}\n\n"
+            f"آماده استفاده از طریق منوی بمباران یا ادمین.",
+            reply_markup=kb_army_for(uid), parse_mode="Markdown")
+        return
+    s = ATOMIC_STAGES[stage]
+    await update.message.reply_text(
+        f"☢️ *پروژه اتمی*\n"
+        f"مرحله {stage+1}/3: {s['n']}\n\n"
+        f"⏱️ {s['t']} نوبت\n"
+        f"💰 {s['m']}\n⚙️ {s['s']}\n🛢️ {s['o']}\n\n"
+        f"برای شروع، دکمه «☢️ شروع مرحله» را بزن.",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("☢️ شروع مرحله")],
+            [KeyboardButton("🔙 منو")]],
+            resize_keyboard=True), parse_mode="Markdown")
+
+async def on_atomic_start(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    if st["turn"] < ATOMIC_UNLOCK:
+        await update.message.reply_text("🔒 هنوز باز نشده.")
+        return
+    if st["country"] not in ("germany", "usa") and gget("atomic_used") != "true":
+        await update.message.reply_text("🔒 در دسترس نیست.")
+        return
+    stage = st.get("atomic_stage", 0)
+    if stage >= 3: return
+    s = ATOMIC_STAGES[stage]
+    if not pay(uid, money=s["m"], steel=s["s"], oil=s["o"]):
+        await update.message.reply_text("❌ منابع کافی نیست.")
+        return
+    sset(uid, atomic_t=s["t"])
+    await update.message.reply_text(
+        f"✅ {s['n']} شروع شد! ({s['t']} نوبت)",
+        reply_markup=kb_army_for(uid))
+
+# ─── hook روتر ───
+_old_on_text4 = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text4(update, ctx)
+    text = update.message.text.strip()
+    uid = update.effective_user.id
+    # دکمه‌های اتم جدید
+    if text == "☢️ پروژه اتمی":
+        await on_atomic(update, ctx); return
+    if text == "☢️ شروع مرحله":
+        await on_atomic_start(update, ctx); return
+    # منوی قدیمی حذف شده
+    if text == "☢️ اتم":
+        await update.message.reply_text(
+            "ℹ️ این گزینه به بخش «⚔️ ارتش» منتقل شد.")
+        return
+    return await _old_on_text4(update, ctx)
+
+# ─── وقتی اتم استفاده شد، پیام به همه + باز شدن برای همه ───
+def use_atomic(uid, target_uid):
+    st = get_state(uid); ts = get_state(target_uid)
+    if not st or not ts: return "❌ خطا"
+    if st.get("atomic_bombs", 0) <= 0:
+        return "❌ بمب اتمی نداری."
+    sset(uid, atomic_bombs=st["atomic_bombs"]-1)
+    sset(target_uid, happiness=max(0, ts["happiness"]//2),
+         soldiers=int(ts["soldiers"]*0.5))
+    add_effect(target_uid, "no_attack", 3)
+    first_time = (gget("atomic_used") != "true")
+    gset("atomic_used", "true")
+    add_news(st["turn"], "atomic",
+        f"☢️ اولین بمب اتمی تاریخ توسط {COUNTRIES[st['country']]['n']} "
+        f"بر فراز پایتخت {COUNTRIES[ts['country']]['n']} منفجر شد.")
+    # اگه اولین بار بود، همه رو آگاه کن
+    if first_time:
+        for p in all_players():
+            add_news(int(gget("turn","1")), f"atom_open_{p['uid']}",
+                f"☢️ اولین بمب اتم جهان استفاده شد! "
+                f"پروژه اتمی برای همه کشورها باز شد.")
+    return f"☢️ بمب اتمی {COUNTRIES[ts['country']]['n']} را هدف گرفت."
+
+# ─── تحویل پیام باز شدن اتم ───
+_old_deliver = deliver_pending
+
+async def deliver_pending(ctx):
+    for p in all_players():
+        uid = p["uid"]
+        key = f"msg_read_{uid}"
+        last_read = int(gget(key, "0") or 0)
+        conn = db()
+        rows = conn.execute(
+            "SELECT * FROM news WHERE id>? AND "
+            "(cat=? OR cat=? OR cat=? OR cat=? OR cat=? OR cat=?) ORDER BY id",
+            (last_read, f"spy_ok_{uid}", f"spy_fail_{uid}",
+             f"spy_caught_{uid}", f"ally_war_{uid}",
+             f"conquest_{uid}", f"atom_open_{uid}")).fetchall()
+        conn.close()
+        for r in rows:
+            try:
+                if r["cat"].startswith("spy_ok_"):
+                    await ctx.bot.send_message(uid,
+                        f"✅ *جاسوسی موفق!*\n━━━━━━━━━━━━━━━━\n{r['text']}",
+                        parse_mode="Markdown")
+                elif r["cat"].startswith("spy_fail_"):
+                    await ctx.bot.send_message(uid,
+                        f"❌ *جاسوس لو رفت!*\n{r['text']}",
+                        parse_mode="Markdown")
+                elif r["cat"].startswith("spy_caught_"):
+                    await ctx.bot.send_message(uid,
+                        f"🚨 *هشدار امنیتی!*\n{r['text']}",
+                        parse_mode="Markdown")
+                elif r["cat"].startswith("ally_war_"):
+                    await ctx.bot.send_message(uid,
+                        f"⚠️ *هشدار اتحاد!*\n\n{r['text']}",
+                        parse_mode="Markdown", reply_markup=kb_main())
+                elif r["cat"].startswith("conquest_"):
+                    await ctx.bot.send_message(uid,
+                        f"💀 *اطلاعیه*\n\n{r['text']}",
+                        parse_mode="Markdown", reply_markup=kb_main())
+                elif r["cat"].startswith("atom_open_"):
+                    await ctx.bot.send_message(uid,
+                        f"☢️ *اطلاعیه مهم*\n\n{r['text']}\n\n"
+                        f"از این پس، پروژه اتمی در بخش «⚔️ ارتش» برای تو هم باز است.",
+                        parse_mode="Markdown")
+                last_read = r["id"]
+            except: pass
+        gset(key, str(last_read))
+
 if __name__ == "__main__":
     main()
