@@ -12,7 +12,7 @@ try:
 except ImportError:
     def keep_alive(): pass
 
-BOT_TOKEN = "PASTE_YOUR_BALE_BOT_TOKEN_HERE"
+BOT_TOKEN = "152004939:-yVJrAHZWHVeopSTZUUltAAIkdjE3f7qNm8"
 BALE_API = "https://tapi.bale.ai/bot"
 DB_FILE = "ww2.db"
 TURN_MINUTES = 30
