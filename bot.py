@@ -5099,5 +5099,174 @@ async def on_text(update, ctx):
         await on_int_action(update, ctx, text); return
     return await _old_on_text11(update, ctx)
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ — اقدامات امور کشور با محدودیت واقعی
+# ═══════════════════════════════════════════════════════════════
+
+# هر اقدام: money, steel, turns (زمان ساخت), hap (رضایت), max (سقف کل)
+INTERNAL_ACTIONS = {
+    # ─── یک‌بار برای همیشه ───
+    "📜 اصلاحات مدنی": {"money": 5000, "steel": 500, "turns": 8, "hap": 5, "max": 1},
+    "⚖️ اصلاح قضایی": {"money": 4000, "steel": 300, "turns": 6, "hap": 4, "max": 1},
+    "💰 مبارزه با فساد": {"money": 6000, "steel": 200, "turns": 10, "hap": 6, "max": 1},
+    "🏛️ قانون اساسی": {"money": 7000, "steel": 400, "turns": 12, "hap": 5, "max": 1},
+    "🎓 دانشگاه ملی": {"money": 5000, "steel": 500, "turns": 8, "hap": 4, "max": 1},
+    # ─── قابل تکرار با سقف ───
+    "🏥 بیمارستان جدید": {"money": 2500, "steel": 250, "turns": 5, "hap": 2, "max": 10},
+    "📚 مدرسه جدید": {"money": 1500, "steel": 150, "turns": 4, "hap": 2, "max": 15},
+    "💧 سیستم آب": {"money": 3000, "steel": 300, "turns": 6, "hap": 3, "max": 5},
+    "🏠 مسکن عمومی": {"money": 4000, "steel": 400, "turns": 7, "hap": 3, "max": 8},
+    "🍞 سهمیه غذا": {"money": 1000, "steel": 0, "turns": 3, "hap": 1, "max": 30},
+    "📻 تبلیغات دولتی": {"money": 800, "steel": 0, "turns": 2, "hap": 1, "max": 50},
+    "🚨 مبارزه با جرم": {"money": 2000, "steel": 100, "turns": 4, "hap": 2, "max": 15},
+    "💼 برنامه اشتغال": {"money": 3000, "steel": 200, "turns": 5, "hap": 3, "max": 10},
+    "🏗️ زیرساخت": {"money": 3500, "steel": 400, "turns": 6, "hap": 3, "max": 8},
+    "📉 کنترل قیمت‌ها": {"money": 2000, "steel": 0, "turns": 3, "hap": 2, "max": 20},
+}
+
+def get_action_count(uid, action):
+    return int(gget(f"acount_{action.replace(' ','_')}_{uid}", "0") or 0)
+
+def can_do_action(uid, action):
+    st = get_state(uid)
+    if not st: return False, "❌ خطا"
+    info = INTERNAL_ACTIONS.get(action)
+    if not info: return False, "❌ اقدام نامعتبر"
+    # سقف
+    count = get_action_count(uid, action)
+    if count >= info["max"]:
+        return False, f"❌ این اقدام حداکثر {info['max']} بار قابل انجام است."
+    # چک کن همین اقدام الان تو صف نباشه
+    in_q = any(p["category"] == "internal_action" and p["model"] == action
+               for p in get_pq(uid))
+    if in_q:
+        return False, "⏳ این اقدام در حال اجراست."
+    # یک اقدام در هر نوبت
+    last_any = int(gget(f"last_action_any_{uid}", "0") or 0)
+    if last_any == st["turn"]:
+        return False, "⚠️ در این نوبت یک اقدام انجام دادی. نوبت بعد دوباره امتحان کن."
+    # منابع
+    if not is_admin(uid):
+        if st["money"] < info["money"]:
+            return False, f"❌ نیاز: {info['money']}💰 (داری {fmt(st['money'])})"
+        if st["steel"] < info["steel"]:
+            return False, f"❌ نیاز: {info['steel']}⚙️ (داری {fmt(st['steel'])})"
+    return True, info
+
+async def on_int_action(update, ctx, action):
+    uid = update.effective_user.id
+    ok, data = can_do_action(uid, action)
+    if not ok:
+        await update.message.reply_text(data)
+        return
+    info = data
+    # پرداخت
+    if not pay(uid, money=info["money"], steel=info["steel"]):
+        await update.message.reply_text("❌ منابع کافی نیست.")
+        return
+    # ثبت تو صف
+    conn = db()
+    conn.execute("INSERT INTO pq(user_id,category,model,qty,turns) VALUES(?,?,?,?,?)",
+        (uid, "internal_action", action, 1, info["turns"]))
+    conn.commit(); conn.close()
+    gset(f"last_action_any_{uid}", str(get_state(uid)["turn"]))
+    gset(f"last_int_{uid}", str(get_state(uid)["turn"]))
+    count = get_action_count(uid, action) + 1
+    await update.message.reply_text(
+        f"🏛️ *{action}*\n\n"
+        f"🔨 در حال اجرا\n"
+        f"⏱️ {info['turns']} نوبت دیگر\n"
+        f"💰 {info['money']} | ⚙️ {info['steel']}\n"
+        f"📊 رضایت پس از تکمیل: +{info['hap']}\n"
+        f"🔢 اجرای {count} از {info['max']}",
+        reply_markup=kb_main(), parse_mode="Markdown")
+
+# ─── پردازش اقدامات در process_turn ───
+_old_pt12 = process_turn
+
+def process_turn(uid):
+    # قبل از اجرای قبلی، صف اقدامات داخلی
+    st = get_state(uid)
+    if st:
+        conn = db()
+        for item in conn.execute(
+            "SELECT * FROM pq WHERE user_id=? AND category='internal_action'",
+            (uid,)).fetchall():
+            t = item["turns"] - 1
+            if t <= 0:
+                action = item["model"]
+                info = INTERNAL_ACTIONS.get(action, {})
+                hap_gain = info.get("hap", 1)
+                st2 = get_state(uid)
+                if st2:
+                    sset(uid, happiness=min(100, st2["happiness"]+hap_gain))
+                # ثبت تعداد
+                count = get_action_count(uid, action) + 1
+                gset(f"acount_{action.replace(' ','_')}_{uid}", str(count))
+                conn.execute("DELETE FROM pq WHERE id=?", (item["id"],))
+            else:
+                conn.execute("UPDATE pq SET turns=? WHERE id=?", (t, item["id"]))
+        conn.commit(); conn.close()
+    # بعد process_turn اصلی
+    return _old_pt12(uid)
+
+# ─── hook روتر ───
+_old_on_text12 = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text12(update, ctx)
+    text = update.message.text.strip()
+    if text in INTERNAL_ACTIONS:
+        await on_int_action(update, ctx, text); return
+    return await _old_on_text12(update, ctx)
+
+# ─── کیبورد امور مردم (بدون هزینه/رایگان) ───
+async def on_people_affairs(update, ctx):
+    uid = update.effective_user.id
+    await update.message.reply_text(
+        "👥 *امور مردم*\n\nچه خدمتی؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("🏥 بیمارستان جدید"),KeyboardButton("📚 مدرسه جدید")],
+            [KeyboardButton("💧 سیستم آب"),KeyboardButton("🏠 مسکن عمومی")],
+            [KeyboardButton("🍞 سهمیه غذا")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
+async def on_gov_affairs(update, ctx):
+    await update.message.reply_text(
+        "🏛️ *امور حکومت*\n\nچه اصلاحی؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("📜 اصلاحات مدنی"),KeyboardButton("⚖️ اصلاح قضایی")],
+            [KeyboardButton("💰 مبارزه با فساد"),KeyboardButton("🏛️ قانون اساسی")],
+            [KeyboardButton("📻 تبلیغات دولتی")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
+async def on_state_affairs(update, ctx):
+    await update.message.reply_text(
+        "🏢 *دولت*\n\nچه اقدامی؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("💼 برنامه اشتغال"),KeyboardButton("🏗️ زیرساخت")],
+            [KeyboardButton("🎓 دانشگاه ملی")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
+async def on_problems(update, ctx):
+    await update.message.reply_text(
+        "📊 *مشکلات*\n\nکدوم؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("🚨 مبارزه با جرم")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
+async def on_inflation(update, ctx):
+    await update.message.reply_text(
+        "📈 *تورم*\n\nسیاست؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("📉 کنترل قیمت‌ها")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
 if __name__ == "__main__":
     main()
