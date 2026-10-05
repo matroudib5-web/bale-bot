@@ -5013,5 +5013,91 @@ async def on_text(update, ctx):
                 return
     return await _old_on_text10(update, ctx)
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ — محدودیت اقدامات امور کشور
+# ═══════════════════════════════════════════════════════════════
+
+# هر اقدام: (هزینه، رضایت، کول‌داون نوبت، توضیح)
+INTERNAL_ACTIONS = {
+    "🏥 بیمارستان جدید": (500, 5, 3, "بیمارستان مدرن افتتاح شد."),
+    "📚 مدرسه جدید": (400, 4, 3, "مدارس جدید ساخته شدند."),
+    "💧 سیستم آب": (600, 6, 4, "آب سالم به همه رسید."),
+    "🏠 مسکن": (700, 7, 4, "پروژه مسکن عمومی آغاز شد."),
+    "🍞 سهمیه غذا": (400, 5, 2, "سهمیه غذایی توزیع شد."),
+    "📜 اصلاحات مدنی": (600, 6, 5, "قوانین مدنی اصلاح شد."),
+    "⚖️ قضایی": (500, 5, 5, "سیستم قضایی تقویت شد."),
+    "💰 مبارزه با فساد": (800, 8, 6, "فساد اداری سرکوب شد."),
+    "📻 تبلیغات": (500, 5, 3, "رسانه‌ها در خدمت دولت."),
+    "💼 برنامه اشتغال": (900, 9, 5, "فرصت‌های شغلی جدید."),
+    "🏗️ زیرساخت": (800, 7, 4, "پروژه‌های زیربنایی آغاز شد."),
+    "🚨 مبارزه با جرم": (700, 6, 4, "نیروهای پلیس تقویت شدند."),
+    "🏭 بیکاری": (900, 8, 5, "کارخانه‌های جدید افتتاح."),
+    "🚧 اعتراضات": (500, 5, 3, "کانال‌های گفتگو با معترضان."),
+    "💰 کاهش مالیات": (0, 3, 8, "مالیات کمی کاهش یافت."),
+    "📉 کنترل قیمت‌ها": (600, 6, 5, "قیمت‌ها کنترل شد."),
+}
+
+def can_do_action(uid, action):
+    """چک کن می‌تونه این اقدام رو بکنه؟"""
+    st = get_state(uid)
+    if not st: return False, "❌ خطا"
+    info = INTERNAL_ACTIONS.get(action)
+    if not info: return False, "❌ اقدام نامعتبر"
+    cost, sat, cd, desc = info
+    # کول‌داون
+    key = f"action_{action.replace(' ','_')}_{uid}"
+    last = int(gget(key, "0") or 0)
+    if last > 0:
+        turns_since = st["turn"] - last
+        if turns_since < cd:
+            rem = cd - turns_since
+            return False, f"⏳ این اقدام {rem} نوبت دیگر قابل استفاده است."
+    # اگه پرداخت نمی‌تونه
+    if not is_admin(uid):
+        if st["money"] < cost:
+            return False, f"❌ نیاز: {cost}💰"
+    # حد روزانه — حداکثر ۱ اقدام در هر نوبت
+    last_any = int(gget(f"last_action_any_{uid}", "0") or 0)
+    if last_any == st["turn"]:
+        return False, "⚠️ در این نوبت یک اقدام انجام دادی. نوبت بعد دوباره."
+    return True, (cost, sat, desc)
+
+async def on_int_action(update, ctx, action):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    ok, data = can_do_action(uid, action)
+    if not ok:
+        await update.message.reply_text(data)
+        return
+    cost, sat, desc = data
+    if cost > 0:
+        if not pay(uid, money=cost):
+            await update.message.reply_text(f"❌ نیاز: {cost}💰")
+            return
+    st2 = get_state(uid)
+    sset(uid, happiness=min(100, st2["happiness"]+sat))
+    gset(f"action_{action.replace(' ','_')}_{uid}", str(st["turn"]))
+    gset(f"last_action_any_{uid}", str(st["turn"]))
+    gset(f"last_int_{uid}", str(st["turn"]))
+    cd = INTERNAL_ACTIONS[action][2]
+    await update.message.reply_text(
+        f"✅ *{action}*\n\n{desc}\n\n"
+        f"😊 رضایت: +{sat}\n"
+        f"💰 هزینه: {cost}\n"
+        f"⏳ کول‌داون: {cd} نوبت",
+        reply_markup=kb_main(), parse_mode="Markdown")
+
+# ─── hook روتر ───
+_old_on_text11 = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text11(update, ctx)
+    text = update.message.text.strip()
+    if text in INTERNAL_ACTIONS:
+        await on_int_action(update, ctx, text); return
+    return await _old_on_text11(update, ctx)
+
 if __name__ == "__main__":
     main()
