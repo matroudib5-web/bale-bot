@@ -5488,5 +5488,133 @@ async def on_internal(update, ctx):
     await update.message.reply_text(t,
         reply_markup=kb_internal_for(uid), parse_mode="Markdown")
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ — همه اخبار هر نوبت، قاطی هم
+# ═══════════════════════════════════════════════════════════════
+
+async def news_post(ctx, title, body=""):
+    if body:
+        text = f"📰 *{title}*\n━━━━━━━━━━━━━━━━\n{body}"
+    else:
+        text = f"📰 *{title}*"
+    try:
+        await ctx.bot.send_message(NEWS_CH, text, parse_mode="Markdown")
+    except Exception as e:
+        log.warning(f"news ch: {e}")
+
+_old_auto_turn_all = auto_turn
+
+async def auto_turn(ctx):
+    if gget("season_ended") == "true": return
+    # ۱. جنگ‌ها
+    advance_wars()
+    # ۲. همه بازیکن‌ها
+    players = all_players()
+    nt = int(gget("turn","1")) + 1
+    gset("turn", nt)
+    # لیست همه خبرها
+    news_items = []
+    for p in players:
+        try:
+            res = process_turn(p["uid"])
+            if not res: continue
+            if res["ev"]:
+                for e in res["ev"]:
+                    news_items.append(("hist", e))
+            t = f"📅 *نوبت {nt}* — {fmt_date(parse_date(res['date']))}\n"
+            if res["ev"]:
+                for e in res["ev"]:
+                    t += f"• {e}\n"
+            await ctx.bot.send_message(p["uid"], t,
+                parse_mode="Markdown", reply_markup=kb_main())
+        except Exception as e:
+            log.warning(f"turn {p['uid']}: {e}")
+    # ۳. خبرهای عمومی این نوبت
+    conn = db()
+    public_cats = ("war","battle","conquest","protest","suppress",
+                   "un","statement","item","holocaust","peace",
+                   "conscription","bomb")
+    rows = conn.execute(
+        f"SELECT * FROM news WHERE turn>=? AND cat IN ({','.join('?'*len(public_cats))}) ORDER BY id",
+        (nt-2, *public_cats)).fetchall()
+    conn.close()
+    seen = set()
+    for r in rows:
+        key = r["text"][:50]
+        if key in seen: continue
+        seen.add(key)
+        news_items.append((r["cat"], r["text"]))
+    # ۴. خبر سرگرمی — هر نوبت
+    news_items.append(("fun", random.choice(RANDOM_NEWS).format(n=random.randint(10, 500))))
+    # ۵. ارسال همه به کانال تو یه پست
+    if news_items:
+        # تاریخ فعلی
+        try:
+            any_st = get_state(players[0]["uid"]) if players else None
+            date_str = fmt_date(parse_date(any_st["game_date"])) if any_st else "—"
+        except: date_str = "—"
+        lines = [
+            f"📰 *WORLD WAR NEWS — نوبت {nt}*",
+            f"🗓️ {date_str}",
+            "━━━━━━━━━━━━━━━━",
+        ]
+        cat_emoji = {
+            "hist":"📜","war":"⚔️","battle":"🎯","conquest":"🏆",
+            "protest":"🔥","suppress":"🚔","un":"🌍","statement":"📢",
+            "item":"🎁","holocaust":"⚫","peace":"☮️",
+            "conscription":"📋","bomb":"✈️","fun":"🎭",
+        }
+        for cat, txt in news_items:
+            em = cat_emoji.get(cat, "•")
+            lines.append(f"{em} {txt}")
+        full = "\n".join(lines)
+        # چک طول پیام
+        if len(full) > 4000:
+            full = full[:3900] + "\n...(ادامه در کانال)"
+        try:
+            await ctx.bot.send_message(NEWS_CH, full, parse_mode="Markdown")
+        except Exception as e:
+            log.warning(f"news: {e}")
+    # ۶. اتم باز شد
+    if nt == ATOMIC_UNLOCK:
+        try:
+            await ctx.bot.send_message(NEWS_CH,
+                "☢️ *پروژه اتمی*\n\nپروژه منهتن امروز رسماً آغاز شد.",
+                parse_mode="Markdown")
+        except: pass
+    # ۷. هشدار UN
+    if nt % UN_INTERVAL == 5 and nt > 0:
+        next_un = nt + 5
+        for p in all_players():
+            try:
+                await ctx.bot.send_message(p["uid"],
+                    f"🌍 *اطلاعیه*\n\n۵ نوبت دیگر (نوبت {next_un}) "
+                    f"نشست عمومی سازمان ملل برگزار می‌شود.")
+            except: pass
+    # ۸. سازمان ملل
+    if nt % UN_INTERVAL == 0 and nt > 0:
+        try:
+            if 'start_un' in globals():
+                await start_un(ctx, nt)
+        except Exception as e: log.warning(f"UN: {e}")
+    # ۹. جاسوسی معلق
+    try: await deliver_pending(ctx)
+    except Exception as e: log.warning(f"deliver: {e}")
+    # ۱۰. پایان سیزن
+    if nt >= TOTAL_TURNS:
+        gset("season_ended", "true")
+        for p in players:
+            try:
+                await ctx.bot.send_message(p["uid"],
+                    "🏁 *سیزن به پایان رسید!*\n\nبرای شروع جدید /start بزن.",
+                    parse_mode="Markdown")
+            except: pass
+
+async def post_to_channel(ctx, text):
+    try:
+        await ctx.bot.send_message(NEWS_CH, text, parse_mode="Markdown")
+    except Exception as e:
+        log.warning(f"post_to_channel: {e}")
+
 if __name__ == "__main__":
     main()
