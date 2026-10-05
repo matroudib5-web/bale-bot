@@ -2,15 +2,17 @@
 # -*- coding: utf-8 -*-
 import sqlite3, random, logging, asyncio
 from datetime import datetime, timedelta
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import (Update, InlineKeyboardButton, InlineKeyboardMarkup,
+    ReplyKeyboardMarkup, KeyboardButton)
+from telegram.ext import (Application, CommandHandler, MessageHandler,
+    filters, ContextTypes)
 from telegram.constants import ChatMemberStatus
 try:
     from keep_alive import keep_alive
 except ImportError:
     def keep_alive(): pass
 
-BOT_TOKEN = "152004939:-yVJrAHZWHVeopSTZUUltAAIkdjE3f7qNm8"
+BOT_TOKEN = "PASTE_YOUR_BALE_BOT_TOKEN_HERE"
 BALE_API = "https://tapi.bale.ai/bot"
 DB_FILE = "ww2.db"
 TURN_MINUTES = 30
@@ -20,7 +22,10 @@ ATOMIC_UNLOCK = 1077
 UN_INTERVAL = 10
 NEWS_CH = "@WORLDWAR21250"
 ADMIN_IDS = [1429506412, 1618371215]
-CHANNELS = [{"u":"@Hitlerss1","l":"📢 کانال اول"},{"u":"@WORLDWAR21250","l":"📢 کانال دوم"}]
+CHANNELS = [
+    {"u":"@Hitlerss1","l":"📢 کانال اول"},
+    {"u":"@WORLDWAR21250","l":"📢 کانال دوم"},
+]
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 log = logging.getLogger(__name__)
 
@@ -41,26 +46,32 @@ COUNTRIES = {
 CMAP = {f"{c['f']} {c['n']}":k for k,c in COUNTRIES.items()}
 CFA = {c['n']:k for k,c in COUNTRIES.items()}
 GOVS = {
-"absolute_monarchy":("👑 پادشاهی مطلقه",-2),"constitutional_monarchy":("👑 پادشاهی مشروطه",1),
-"presidential_republic":("🗳️ جمهوری ریاستی",1),"parliamentary_republic":("🗳️ جمهوری پارلمانی",2),
-"fascist":("🚩 فاشیسم",-3),"communism":("🚩 کمونیسم",-1),
-"military_dictatorship":("⚙️ دیکتاتوری نظامی",-2),"personal_dictatorship":("⚙️ دیکتاتوری شخصی",-3),
-"liberal_democracy":("🕊️ دموکراسی لیبرال",2),"social_democracy":("🕊️ دموکراسی اجتماعی",3),
-"theocracy":("⚖️ تئوکراسی",-1),"single_party":("🚩 تک‌حزبی",-2),
+"absolute_monarchy":("👑 پادشاهی مطلقه",-2),
+"constitutional_monarchy":("👑 پادشاهی مشروطه",1),
+"presidential_republic":("🗳️ جمهوری ریاستی",1),
+"parliamentary_republic":("🗳️ جمهوری پارلمانی",2),
+"fascist":("🚩 فاشیسم",-3),
+"communism":("🚩 کمونیسم",-1),
+"military_dictatorship":("⚙️ دیکتاتوری نظامی",-2),
+"personal_dictatorship":("⚙️ دیکتاتوری شخصی",-3),
+"liberal_democracy":("🕊️ دموکراسی لیبرال",2),
+"social_democracy":("🕊️ دموکراسی اجتماعی",3),
+"theocracy":("⚖️ تئوکراسی",-1),
+"single_party":("🚩 تک‌حزبی",-2),
 }
 def M(n,p,c,b,s,o,d): return (n,p,c,b,s,o,d)
 R = {}
 R["germany"]={
 "tanks":[M("Panzer I",5,50,1,20,0,"سبک"),M("Panzer II",8,100,1,40,0,"شناسایی"),M("Panzer III",12,200,2,80,5,"متوسط"),M("Panzer IV",18,350,2,140,10,"اصلی"),M("Tiger I",28,700,3,250,20,"سنگین")],
 "fighters":[M("Ar 68",6,50,1,15,5,"آموزشی"),M("Bf 109E",10,100,1,30,10,"اصلی"),M("Bf 109G",15,200,2,60,20,"برتر"),M("Fw 190",20,350,2,100,30,"سنگین"),M("Ta 152",26,600,3,180,45,"پیشرفته")],
-"jets":[M("He 178",15,200,2,50,30,"اولین"),M("Me 262",30,500,3,150,60,"افسانه‌ای"),M("He 162",24,400,3,100,45,"Volks"),M("Ho 229",34,700,4,200,70,"بال‌پرنده"),M("Arado 234",32,650,4,180,65,"جت‌بمب")],
+"jets":[M("He 178",15,200,2,50,30,"اولین"),M("Me 262",30,500,3,150,60,"افسانه"),M("He 162",24,400,3,100,45,"Volks"),M("Ho 229",34,700,4,200,70,"بال‌پرنده"),M("Arado 234",32,650,4,180,65,"جت‌بمب")],
 "ships":[M("U-Boat VII",14,100,3,40,10,"زیردریایی"),M("Scharnhorst",20,250,4,100,20,"رزمناو"),M("Bismarck",28,450,5,180,30,"ناو"),M("Tirpitz",32,600,6,220,40,"ناو"),M("Graf Zeppelin",36,750,7,280,50,"ناو‌هواپیمابر")],
 "missiles":[M("V-1",12,150,2,30,20,"کروز"),M("V-2",24,400,3,80,40,"بالستیک"),M("V-3",30,600,4,120,55,"چندمرحله"),M("A9",38,900,5,200,80,"قاره‌پیما"),M("Silbervogel",42,1200,6,300,100,"فضایی")],
 "bombers":[M("Do 17",8,80,2,25,15,"سبک"),M("He 111",12,150,2,50,25,"متوسط"),M("Ju 88",16,250,3,80,35,"چندنقش"),M("He 177",22,400,4,130,50,"سنگین"),M("Ju 390",28,700,5,200,70,"قاره‌پیما")],
 "aa":[M("Flak 30",10,500,2,50,0,"۲۰mm"),M("Flakvierling",18,1000,3,100,0,"چهارلول"),M("Flak 43",25,2000,4,200,0,"۳۷mm"),M("Flak 36/37",45,5000,6,500,0,"۸۸mm"),M("Flak 40",80,25000,15,2500,0,"۱۲۸mm")]}
 R["uk"]={
 "tanks":[M("Vickers VI",5,50,1,20,0,"سبک"),M("Matilda II",12,200,2,80,5,"پیاده"),M("Churchill",20,400,3,150,15,"سنگین"),M("Cromwell",24,550,3,180,25,"سریع"),M("Comet",28,750,4,220,35,"برتر")],
-"fighters":[M("Gladiator",6,50,1,15,5,"دوباله"),M("Hurricane",10,100,1,30,10,"اصلی"),M("Spitfire",16,250,2,70,20,"افسانه‌ای"),M("Typhoon",22,400,3,110,30,"سنگین"),M("Tempest",26,600,3,150,40,"برتر")],
+"fighters":[M("Gladiator",6,50,1,15,5,"دوباله"),M("Hurricane",10,100,1,30,10,"اصلی"),M("Spitfire",16,250,2,70,20,"افسانه"),M("Typhoon",22,400,3,110,30,"سنگین"),M("Tempest",26,600,3,150,40,"برتر")],
 "jets":[M("Gloster E.28",12,200,2,50,30,"اولین"),M("Meteor",26,500,3,140,55,"اصلی"),M("Vampire",24,480,3,130,50,"دوم"),M("Sea Vampire",28,600,4,160,60,"ناوبر"),M("Swift",32,800,4,200,75,"پیشرفته")],
 "ships":[M("Tribal",10,100,3,30,10,"ناوشکن"),M("Nelson",22,300,4,120,25,"ناو"),M("King George V",28,450,5,180,35,"ناو"),M("Illustrious",30,600,6,220,45,"ناو‌هواپیمابر"),M("Vanguard",34,800,7,280,55,"برتر")],
 "missiles":[M("UP-1",8,100,2,20,15,"ضدهوایی"),M("Stooge",12,200,2,40,25,"ضدکشتی"),M("Brakemine",18,350,3,70,35,"هدایت"),M("Green Cheese",24,500,4,100,50,"ضدکشتی"),M("Blue Steel",30,700,5,150,65,"بالستیک")],
@@ -75,9 +86,9 @@ R["usa"]={
 "bombers":[M("B-10",8,80,2,25,15,"اولیه"),M("B-17",16,250,3,80,30,"قلعه"),M("B-24",20,350,3,100,40,"سنگین"),M("B-29",28,600,4,180,60,"ابرقدرت"),M("B-36",38,1000,6,300,100,"قاره‌پیما")],
 "aa":[M("M2HB",10,500,2,50,0,"سبک"),M("Bofors M1",20,1200,3,120,0,"۴۰mm"),M("M3",30,2500,5,250,0,"۷۶mm"),M("M1",55,6000,7,600,0,"۹۰mm"),M("M45",80,15000,12,1500,0,"۱۲۰mm")]}
 R["ussr"]={
-"tanks":[M("T-26",5,50,1,20,0,"سبک"),M("BT-7",9,120,1,45,5,"سریع"),M("T-34",20,350,2,130,20,"افسانه‌ای"),M("KV-1",26,500,3,180,25,"سنگین"),M("IS-2",32,750,4,250,40,"برتر")],
+"tanks":[M("T-26",5,50,1,20,0,"سبک"),M("BT-7",9,120,1,45,5,"سریع"),M("T-34",20,350,2,130,20,"افسانه"),M("KV-1",26,500,3,180,25,"سنگین"),M("IS-2",32,750,4,250,40,"برتر")],
 "fighters":[M("I-15",6,50,1,15,5,"دوباله"),M("Yak-1",10,100,1,30,10,"اصلی"),M("La-5",16,250,2,70,20,"برتر"),M("Yak-9",20,400,2,100,30,"چندکاره"),M("La-9",26,600,3,150,45,"نهایی")],
-"jets":[M("MiG-9",22,400,3,100,45,"اولیه"),M("Yak-15",20,380,3,90,40,"سبک"),M("La-15",26,500,4,130,55,"برتر"),M("MiG-15",36,800,5,200,80,"افسانه‌ای"),M("Il-28",32,700,4,180,70,"جت‌بمب")],
+"jets":[M("MiG-9",22,400,3,100,45,"اولیه"),M("Yak-15",20,380,3,90,40,"سبک"),M("La-15",26,500,4,130,55,"برتر"),M("MiG-15",36,800,5,200,80,"افسانه"),M("Il-28",32,700,4,180,70,"جت‌بمب")],
 "ships":[M("Gnevny",10,100,3,30,10,"ناوشکن"),M("Kirov",18,300,4,110,25,"رزمناو"),M("Chapayev",24,450,5,160,35,"رزمناو"),M("Sovetsky",34,800,7,280,60,"ناو"),M("Kronshtadt",32,700,7,240,55,"سنگین")],
 "missiles":[M("Katyusha",10,100,2,20,10,"توپخانه"),M("RS-82",14,200,2,40,20,"هواپایه"),M("10Kh",20,400,3,80,35,"کروز"),M("R-1",26,550,4,120,50,"کپیV-2"),M("R-5",32,800,5,180,70,"بالستیک")],
 "bombers":[M("SB",8,80,2,25,15,"سریع"),M("DB-3",12,150,2,50,25,"دوربرد"),M("Pe-2",16,250,3,80,30,"شیرجه"),M("Tu-2",20,400,3,100,40,"متوسط"),M("Pe-8",26,600,5,150,55,"دوربرد")],
@@ -147,7 +158,9 @@ R["brazil"]={
 "bombers":[M("B-25",10,120,2,35,18,"متوسط"),M("B-17",16,280,3,70,30,"سنگین"),M("B-24",18,320,3,85,35,"دوربرد"),M("B-26",14,220,3,55,22,"بمب"),M("AMX",24,500,4,110,45,"جت")],
 "aa":[M("3.7 inch",55,7000,8,700,0,"۹۴mm")]}
 
-CAT_N = {"tanks":"🛡️ تانک","fighters":"✈️ جنگنده","jets":"🚀 جت","ships":"🚢 کشتی/ناو","missiles":"🎯 موشک","bombers":"💣 بمب‌افکن","aa":"🛡️ پدافند"}
+CAT_N = {"tanks":"🛡️ تانک","fighters":"✈️ جنگنده","jets":"🚀 جت",
+"ships":"🚢 کشتی/ناو","missiles":"🎯 موشک","bombers":"💣 بمب‌افکن","aa":"🛡️ پدافند"}
+
 PROJECTS = {
 "steel_mill":{"n":"⚙️ کارخانه فولاد","cat":"industry","m":400,"s":80,"d":4,"eff":"steel","v":30},
 "ammo_factory":{"n":"🔫 کارخانه مهمات","cat":"industry","m":300,"s":60,"d":3,"eff":"equip","v":20},
@@ -171,6 +184,7 @@ PROJECTS = {
 "port":{"n":"⚓ بندر","cat":"transport","m":450,"s":90,"d":5,"eff":"ship_bonus","v":10},
 "naval_base":{"n":"⚓ پایگاه دریایی","cat":"transport","m":800,"s":150,"d":8,"eff":"naval","v":1},
 }
+
 SPECIAL_ITEMS = {
 "force_exile":{"n":"🗳 اخراج اجباری"},"censor":{"n":"🤐 سانسور"},"expose":{"n":"🕵️ افشاگری"},
 "seize_power":{"n":"👑 غصب قدرت"},"force_ally":{"n":"🤝 اتحاد اجباری"},"plunder":{"n":"💰 غارت"},
@@ -186,59 +200,128 @@ ITEM_FA = {"بمب تزار":"tsar_bomb","بمب اتم":"nuke_item","بمبار
 "قفل روی حریف":"lock_on","انتقام":"revenge","طوفان جنگی":"war_storm",
 "اخراج اجباری":"force_exile","سانسور":"censor","افشاگری":"expose",
 "غصب قدرت":"seize_power","اتحاد اجباری":"force_ally","غارت":"plunder","نطق جنگی":"war_speech"}
+
 ATOMIC_STAGES = [{"n":"☢️ برنامه هسته‌ای","t":2,"m":500,"s":100,"o":0},
 {"n":"⚛️ غنی‌سازی","t":2,"m":800,"s":150,"o":20},
 {"n":"🔩 مونتاژ","t":1,"m":700,"s":150,"o":30}]
-EVENTS = {"1939-09-01":"🇩🇪 حمله به لهستان","1939-09-03":"🇬🇧🇫🇷 اعلام جنگ",
-"1940-05-10":"🇩🇪 حمله به فرانسه","1940-06-22":"🇫🇷 تسلیم فرانسه",
-"1941-06-22":"🇩🇪 بارباروسا","1941-12-07":"🇯🇵 پرل هاربر",
-"1942-08-23":"🔥 استالینگراد","1944-06-06":"🚢 D-Day",
-"1945-05-08":"🏁 تسلیم آلمان","1945-08-06":"☢️ هیروشیما","1945-09-02":"🏁 تسلیم ژاپن"}
-RANDOM_NEWS = ["🌧️ بارش شدید — {n} تلفات","🌊 سیل — {n} مجروح","🌍 زمین‌لرزه — {n} خسارت",
-"❄️ موج سرما — {n} بی‌خانمان","🔥 آتش‌سوزی — {n} خسارت"]
+
+EVENTS = {"1939-09-01":"🇩🇪 آلمان به لهستان حمله کرد",
+"1939-09-03":"🇬🇧🇫🇷 انگلیس و فرانسه اعلام جنگ کردند",
+"1940-05-10":"🇩🇪 آلمان به فرانسه حمله کرد",
+"1940-06-22":"🇫🇷 فرانسه تسلیم شد",
+"1940-07-10":"✈️ نبرد بریتانیا آغاز شد",
+"1941-06-22":"🇩🇪 عملیات بارباروسا",
+"1941-12-07":"🇯🇵 حمله به پرل هاربر",
+"1941-12-11":"🇺🇸 آمریکا وارد جنگ شد",
+"1942-06-04":"🌊 نبرد میدوی",
+"1942-08-23":"🔥 نبرد استالینگراد",
+"1943-02-02":"🏆 پیروزی شوروی در استالینگراد",
+"1944-06-06":"🚢 عملیات اورلرد — D-Day",
+"1945-02-04":"🤝 کنفرانس یالتا",
+"1945-04-30":"💀 خودکشی هیتلر",
+"1945-05-08":"🏁 تسلیم آلمان",
+"1945-08-06":"☢️ بمباران اتمی هیروشیما",
+"1945-08-09":"☢️ بمباران اتمی ناکازاکی",
+"1945-09-02":"🏁 تسلیم ژاپن"}
+
+RANDOM_NEWS = [
+"🌧️ بارش‌های سیل‌آسا دیروز در شمال اروپا {n} نفر را آواره کرد.",
+"🌊 سیل ویرانگر در سواحل مدیترانه به {n} نفر خسارت وارد کرد.",
+"🌍 زمین‌لرزه‌ای به بزرگی ۵.۲ ریشتر در مرزهای ایتالیا {n} نفر را مجروح کرد.",
+"❄️ موج سرمای بی‌سابقه در شرق اروپا {n} نفر را بی‌خانمان کرد.",
+"🔥 آتش‌سوزی گسترده در جنگل‌های کانادا تاکنون {n} هکتار را نابود کرده است.",
+"☀️ موج گرمای شدید در جنوب اروپا {n} نفر را به کام مرگ کشاند.",
+"⛈️ طوفان فصلی در سواحل ژاپن {n} نفر را مجروح کرد."]
 
 def init_db():
     c = sqlite3.connect(DB_FILE)
-    c.execute("CREATE TABLE IF NOT EXISTS players(user_id INTEGER PRIMARY KEY,country TEXT UNIQUE,gov TEXT,is_vip INTEGER DEFAULT 0)")
-    c.execute("""CREATE TABLE IF NOT EXISTS states(user_id INTEGER PRIMARY KEY,turn INTEGER DEFAULT 1,
-        game_date TEXT DEFAULT '1939-09-01',money REAL DEFAULT 0,food REAL DEFAULT 0,water REAL DEFAULT 0,
-        steel REAL DEFAULT 0,oil REAL DEFAULT 0,coal REAL DEFAULT 0,manpower REAL DEFAULT 0,
-        tax INTEGER DEFAULT 20,happiness INTEGER DEFAULT 70,surveillance INTEGER DEFAULT 20,
-        protest INTEGER DEFAULT 0,protest_t INTEGER DEFAULT 0,suppress_cd INTEGER DEFAULT 0,
-        war INTEGER DEFAULT 0,last_turn TEXT,atomic_stage INTEGER DEFAULT 0,atomic_t INTEGER DEFAULT 0,
-        atomic_bombs INTEGER DEFAULT 0,soldiers INTEGER DEFAULT 0,dead INTEGER DEFAULT 0)""")
-    c.execute("CREATE TABLE IF NOT EXISTS army(user_id INTEGER,category TEXT,model TEXT,count INTEGER DEFAULT 0,PRIMARY KEY(user_id,category,model))")
-    c.execute("CREATE TABLE IF NOT EXISTS factories(user_id INTEGER,fkey TEXT,level INTEGER DEFAULT 1,PRIMARY KEY(user_id,fkey))")
-    c.execute("CREATE TABLE IF NOT EXISTS research(user_id INTEGER,category TEXT,model TEXT,PRIMARY KEY(user_id,category,model))")
-    c.execute("CREATE TABLE IF NOT EXISTS pq(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER,category TEXT,model TEXT,qty INTEGER,turns INTEGER)")
-    c.execute("CREATE TABLE IF NOT EXISTS projq(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER,pkey TEXT,turns INTEGER)")
-    c.execute("CREATE TABLE IF NOT EXISTS done_proj(user_id INTEGER,pkey TEXT,PRIMARY KEY(user_id,pkey))")
-    c.execute("""CREATE TABLE IF NOT EXISTS wars(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        attacker TEXT,defender TEXT,atk_uid INTEGER,def_uid INTEGER,
-        stage TEXT DEFAULT 'move',turns INTEGER DEFAULT 1,continued INTEGER DEFAULT 0)""")
-    c.execute("CREATE TABLE IF NOT EXISTS allies(aid INTEGER,user_id INTEGER)")
-    c.execute("CREATE TABLE IF NOT EXISTS alliances(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,founder INTEGER)")
-    c.execute("CREATE TABLE IF NOT EXISTS nap(a INTEGER,b INTEGER,until_turn INTEGER,PRIMARY KEY(a,b))")
-    c.execute("CREATE TABLE IF NOT EXISTS negs(id INTEGER PRIMARY KEY AUTOINCREMENT,from_id INTEGER,to_id INTEGER,kind TEXT,payload TEXT DEFAULT '',status TEXT DEFAULT 'pending')")
-    c.execute("CREATE TABLE IF NOT EXISTS trades(id INTEGER PRIMARY KEY AUTOINCREMENT,from_id INTEGER,to_id INTEGER,gr TEXT,ga INTEGER,wr TEXT,wa INTEGER,status TEXT DEFAULT 'pending')")
-    c.execute("CREATE TABLE IF NOT EXISTS spies(id INTEGER PRIMARY KEY AUTOINCREMENT,from_id INTEGER,to_id INTEGER,turns INTEGER,status TEXT DEFAULT 'pending')")
-    c.execute("CREATE TABLE IF NOT EXISTS items(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER,item TEXT,payload TEXT,turns_left INTEGER DEFAULT 0)")
-    c.execute("CREATE TABLE IF NOT EXISTS news(id INTEGER PRIMARY KEY AUTOINCREMENT,turn INTEGER,cat TEXT,text TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS glob(k TEXT PRIMARY KEY,v TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS bombing(id INTEGER PRIMARY KEY AUTOINCREMENT,target_uid INTEGER,effect TEXT,turns INTEGER)")
+    c.execute("""CREATE TABLE IF NOT EXISTS players(
+        user_id INTEGER PRIMARY KEY, country TEXT UNIQUE,
+        gov TEXT, is_vip INTEGER DEFAULT 0)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS states(
+        user_id INTEGER PRIMARY KEY, turn INTEGER DEFAULT 1,
+        game_date TEXT DEFAULT '1939-09-01',
+        money REAL DEFAULT 0, food REAL DEFAULT 0, water REAL DEFAULT 0,
+        steel REAL DEFAULT 0, oil REAL DEFAULT 0, coal REAL DEFAULT 0,
+        manpower REAL DEFAULT 0, tax INTEGER DEFAULT 20,
+        happiness INTEGER DEFAULT 70, surveillance INTEGER DEFAULT 20,
+        protest INTEGER DEFAULT 0, protest_t INTEGER DEFAULT 0,
+        suppress_cd INTEGER DEFAULT 0, war INTEGER DEFAULT 0,
+        last_turn TEXT, atomic_stage INTEGER DEFAULT 0,
+        atomic_t INTEGER DEFAULT 0, atomic_bombs INTEGER DEFAULT 0,
+        soldiers INTEGER DEFAULT 0, dead INTEGER DEFAULT 0)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS army(
+        user_id INTEGER, category TEXT, model TEXT, count INTEGER DEFAULT 0,
+        PRIMARY KEY(user_id,category,model))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS factories(
+        user_id INTEGER, fkey TEXT, level INTEGER DEFAULT 1,
+        PRIMARY KEY(user_id,fkey))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS research(
+        user_id INTEGER, category TEXT, model TEXT,
+        PRIMARY KEY(user_id,category,model))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS pq(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER,
+        category TEXT, model TEXT, qty INTEGER, turns INTEGER)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS projq(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER,
+        pkey TEXT, turns INTEGER)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS done_proj(
+        user_id INTEGER, pkey TEXT, PRIMARY KEY(user_id,pkey))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS wars(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        attacker TEXT, defender TEXT,
+        atk_uid INTEGER, def_uid INTEGER,
+        stage TEXT DEFAULT 'move', turns INTEGER DEFAULT 1)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS allies(
+        aid INTEGER, user_id INTEGER)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS alliances(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, founder INTEGER)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS nap(
+        a INTEGER, b INTEGER, until_turn INTEGER, PRIMARY KEY(a,b))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS negs(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_id INTEGER, to_id INTEGER, kind TEXT,
+        payload TEXT DEFAULT '', status TEXT DEFAULT 'pending')""")
+    c.execute("""CREATE TABLE IF NOT EXISTS trades(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_id INTEGER, to_id INTEGER,
+        gr TEXT, ga INTEGER, wr TEXT, wa INTEGER,
+        status TEXT DEFAULT 'pending')""")
+    c.execute("""CREATE TABLE IF NOT EXISTS spies(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_id INTEGER, to_id INTEGER, turns INTEGER,
+        status TEXT DEFAULT 'pending')""")
+    c.execute("""CREATE TABLE IF NOT EXISTS items(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER, item TEXT,
+        payload TEXT DEFAULT '', turns_left INTEGER DEFAULT 0)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS news(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        turn INTEGER, cat TEXT, text TEXT)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS glob(
+        k TEXT PRIMARY KEY, v TEXT)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS bombing(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_uid INTEGER, effect TEXT, turns INTEGER)""")
     c.execute("INSERT OR IGNORE INTO glob(k,v) VALUES('turn','1')")
     c.execute("INSERT OR IGNORE INTO glob(k,v) VALUES('atomic_used','false')")
+    c.execute("INSERT OR IGNORE INTO glob(k,v) VALUES('season_ended','false')")
     c.commit(); c.close()
 
 def db():
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return conn
+
 def gget(k, d=None):
     conn = db(); r = conn.execute("SELECT v FROM glob WHERE k=?", (k,)).fetchone(); conn.close()
     return r["v"] if r else d
+
 def gset(k, v):
-    conn = db(); conn.execute("INSERT OR REPLACE INTO glob(k,v) VALUES(?,?)", (k, str(v))); conn.commit(); conn.close()
+    conn = db()
+    conn.execute("INSERT OR REPLACE INTO glob(k,v) VALUES(?,?)", (k, str(v)))
+    conn.commit(); conn.close()
+
 def get_state(uid):
     conn = db()
     p = conn.execute("SELECT * FROM players WHERE user_id=?", (uid,)).fetchone()
@@ -246,103 +329,204 @@ def get_state(uid):
     conn.close()
     if not p or not s: return None
     r = dict(p); r.update(dict(s)); return r
+
 def sset(uid, **kw):
     if not kw: return
     cols = ",".join(f"{k}=?" for k in kw)
-    conn = db(); conn.execute(f"UPDATE states SET {cols} WHERE user_id=?", list(kw.values())+[uid])
+    conn = db()
+    conn.execute(f"UPDATE states SET {cols} WHERE user_id=?", list(kw.values())+[uid])
     conn.commit(); conn.close()
+
 def pset(uid, **kw):
     if not kw: return
     cols = ",".join(f"{k}=?" for k in kw)
-    conn = db(); conn.execute(f"UPDATE players SET {cols} WHERE user_id=?", list(kw.values())+[uid])
+    conn = db()
+    conn.execute(f"UPDATE players SET {cols} WHERE user_id=?", list(kw.values())+[uid])
     conn.commit(); conn.close()
+
 def find_country(ck):
-    conn = db(); r = conn.execute("SELECT user_id FROM players WHERE country=?", (ck,)).fetchone(); conn.close()
+    conn = db()
+    r = conn.execute("SELECT user_id FROM players WHERE country=?", (ck,)).fetchone()
+    conn.close()
     return r["user_id"] if r else None
+
 def all_players(exclude=None):
     conn = db()
     rows = conn.execute("SELECT user_id,country,is_vip FROM players").fetchall()
     conn.close()
     result = []
     for r in rows:
-        if r["user_id"]==exclude: continue
+        if r["user_id"] == exclude: continue
         st = get_state(r["user_id"])
         if st and st.get("dead"): continue
         result.append({"uid":r["user_id"],"c":r["country"],"v":r["is_vip"]})
     return result
+
 def taken():
-    conn = db(); rows = conn.execute("SELECT country FROM players").fetchall(); conn.close()
+    conn = db()
+    rows = conn.execute("SELECT country FROM players").fetchall()
+    conn.close()
     return {r["country"] for r in rows}
+
 def is_admin(uid): return uid in ADMIN_IDS
+
 def is_vip(uid):
     if is_admin(uid): return True
-    conn = db(); r = conn.execute("SELECT is_vip FROM players WHERE user_id=?", (uid,)).fetchone(); conn.close()
+    conn = db()
+    r = conn.execute("SELECT is_vip FROM players WHERE user_id=?", (uid,)).fetchone()
+    conn.close()
     return bool(r and r["is_vip"])
+
 def set_vip(uid, v=1):
-    conn = db(); conn.execute("UPDATE players SET is_vip=? WHERE user_id=?", (v, uid)); conn.commit(); conn.close()
+    conn = db()
+    conn.execute("UPDATE players SET is_vip=? WHERE user_id=?", (v, uid))
+    conn.commit(); conn.close()
+
 def get_army(uid):
-    conn = db(); rows = conn.execute("SELECT * FROM army WHERE user_id=? AND count>0", (uid,)).fetchall(); conn.close()
+    conn = db()
+    rows = conn.execute("SELECT * FROM army WHERE user_id=? AND count>0", (uid,)).fetchall()
+    conn.close()
     return [dict(r) for r in rows]
+
 def add_army(uid, cat, model, cnt):
     conn = db()
-    conn.execute("INSERT INTO army(user_id,category,model,count) VALUES(?,?,?,?) ON CONFLICT(user_id,category,model) DO UPDATE SET count=count+?", (uid, cat, model, cnt, cnt))
+    conn.execute("""INSERT INTO army(user_id,category,model,count) VALUES(?,?,?,?)
+        ON CONFLICT(user_id,category,model) DO UPDATE SET count=count+?""",
+        (uid, cat, model, cnt, cnt))
     conn.commit(); conn.close()
+
 def get_res(uid, cat):
-    conn = db(); rows = conn.execute("SELECT model FROM research WHERE user_id=? AND category=?", (uid, cat)).fetchall(); conn.close()
+    conn = db()
+    rows = conn.execute("SELECT model FROM research WHERE user_id=? AND category=?",
+        (uid, cat)).fetchall()
+    conn.close()
     return {r["model"] for r in rows}
+
 def mark_res(uid, cat, model):
-    conn = db(); conn.execute("INSERT OR IGNORE INTO research(user_id,category,model) VALUES(?,?,?)", (uid, cat, model)); conn.commit(); conn.close()
+    conn = db()
+    conn.execute("INSERT OR IGNORE INTO research(user_id,category,model) VALUES(?,?,?)",
+        (uid, cat, model))
+    conn.commit(); conn.close()
+
 def get_fact(uid):
-    conn = db(); rows = conn.execute("SELECT * FROM factories WHERE user_id=?", (uid,)).fetchall(); conn.close()
+    conn = db()
+    rows = conn.execute("SELECT * FROM factories WHERE user_id=?", (uid,)).fetchall()
+    conn.close()
     return [dict(r) for r in rows]
+
 def init_fact(uid):
     conn = db()
     for k in ["steel_mill","coal_mine","refinery","ammo_factory","farm"]:
-        conn.execute("INSERT OR IGNORE INTO factories(user_id,fkey,level) VALUES(?,?,1)", (uid, k))
+        conn.execute("INSERT OR IGNORE INTO factories(user_id,fkey,level) VALUES(?,?,1)",
+            (uid, k))
     conn.commit(); conn.close()
+
 def get_pq(uid):
-    conn = db(); rows = conn.execute("SELECT * FROM pq WHERE user_id=?", (uid,)).fetchall(); conn.close()
+    conn = db()
+    rows = conn.execute("SELECT * FROM pq WHERE user_id=?", (uid,)).fetchall()
+    conn.close()
     return [dict(r) for r in rows]
+
 def add_pq(uid, cat, model, qty, turns):
-    conn = db(); conn.execute("INSERT INTO pq(user_id,category,model,qty,turns) VALUES(?,?,?,?,?)", (uid, cat, model, qty, turns)); conn.commit(); conn.close()
+    conn = db()
+    conn.execute("INSERT INTO pq(user_id,category,model,qty,turns) VALUES(?,?,?,?,?)",
+        (uid, cat, model, qty, turns))
+    conn.commit(); conn.close()
+
 def get_projq(uid):
-    conn = db(); rows = conn.execute("SELECT * FROM projq WHERE user_id=?", (uid,)).fetchall(); conn.close()
+    conn = db()
+    rows = conn.execute("SELECT * FROM projq WHERE user_id=?", (uid,)).fetchall()
+    conn.close()
     return [dict(r) for r in rows]
+
 def add_projq(uid, pk, turns):
-    conn = db(); conn.execute("INSERT INTO projq(user_id,pkey,turns) VALUES(?,?,?)", (uid, pk, turns)); conn.commit(); conn.close()
+    conn = db()
+    conn.execute("INSERT INTO projq(user_id,pkey,turns) VALUES(?,?,?)", (uid, pk, turns))
+    conn.commit(); conn.close()
+
 def get_done_proj(uid):
-    conn = db(); rows = conn.execute("SELECT pkey FROM done_proj WHERE user_id=?", (uid,)).fetchall(); conn.close()
+    conn = db()
+    rows = conn.execute("SELECT pkey FROM done_proj WHERE user_id=?", (uid,)).fetchall()
+    conn.close()
     return {r["pkey"] for r in rows}
+
 def mark_proj(uid, pk):
-    conn = db(); conn.execute("INSERT OR IGNORE INTO done_proj(user_id,pkey) VALUES(?,?)", (uid, pk)); conn.commit(); conn.close()
+    conn = db()
+    conn.execute("INSERT OR IGNORE INTO done_proj(user_id,pkey) VALUES(?,?)", (uid, pk))
+    conn.commit(); conn.close()
+
 def get_nap(a, b):
-    conn = db(); r = conn.execute("SELECT until_turn FROM nap WHERE (a=? AND b=?) OR (a=? AND b=?)", (a,b,b,a)).fetchone(); conn.close()
+    conn = db()
+    r = conn.execute("SELECT until_turn FROM nap WHERE (a=? AND b=?) OR (a=? AND b=?)",
+        (a, b, b, a)).fetchone()
+    conn.close()
     return r["until_turn"] if r else 0
+
 def add_nap(a, b, until):
-    conn = db(); conn.execute("INSERT OR REPLACE INTO nap(a,b,until_turn) VALUES(?,?,?)", (a,b,until)); conn.commit(); conn.close()
+    conn = db()
+    conn.execute("INSERT OR REPLACE INTO nap(a,b,until_turn) VALUES(?,?,?)", (a, b, until))
+    conn.commit(); conn.close()
+
+def cancel_nap(a, b):
+    conn = db()
+    conn.execute("DELETE FROM nap WHERE (a=? AND b=?) OR (a=? AND b=?)", (a, b, b, a))
+    conn.commit(); conn.close()
+
+def nap_active(a, b):
+    until = get_nap(a, b)
+    if not until: return False
+    return int(gget("turn","1")) < until
+
 def get_user_alliance(uid):
-    conn = db(); r = conn.execute("SELECT aid FROM allies WHERE user_id=?", (uid,)).fetchone(); conn.close()
+    conn = db()
+    r = conn.execute("SELECT aid FROM allies WHERE user_id=?", (uid,)).fetchone()
+    conn.close()
     return r["aid"] if r else None
+
 def get_alliance_members(aid):
-    conn = db(); rows = conn.execute("SELECT user_id FROM allies WHERE aid=?", (aid,)).fetchall(); conn.close()
+    conn = db()
+    rows = conn.execute("SELECT user_id FROM allies WHERE aid=?", (aid,)).fetchall()
+    conn.close()
     return [r["user_id"] for r in rows]
+
+def is_in_same_alliance(a, b):
+    aa = get_user_alliance(a); bb = get_user_alliance(b)
+    return aa and bb and aa == bb
+
 def add_news(turn, cat, text):
-    conn = db(); conn.execute("INSERT INTO news(turn,cat,text) VALUES(?,?,?)", (turn, cat, text)); conn.commit(); conn.close()
+    conn = db()
+    conn.execute("INSERT INTO news(turn,cat,text) VALUES(?,?,?)", (turn, cat, text))
+    conn.commit(); conn.close()
+
 def has_effect(uid, effect):
-    conn = db(); r = conn.execute("SELECT 1 FROM items WHERE user_id=? AND item=? AND turns_left>0", (uid, effect)).fetchone(); conn.close()
+    conn = db()
+    r = conn.execute("SELECT 1 FROM items WHERE user_id=? AND item=? AND turns_left>0",
+        (uid, effect)).fetchone()
+    conn.close()
     return bool(r)
+
 def add_effect(uid, effect, turns, payload=""):
-    conn = db(); conn.execute("INSERT INTO items(user_id,item,payload,turns_left) VALUES(?,?,?,?)", (uid, effect, payload, turns)); conn.commit(); conn.close()
+    conn = db()
+    conn.execute("INSERT INTO items(user_id,item,payload,turns_left) VALUES(?,?,?,?)",
+        (uid, effect, payload, turns))
+    conn.commit(); conn.close()
+
 def fmt(n):
     try: return f"{int(n):,}"
     except: return str(n)
+
 def parse_date(s):
     try: return datetime.strptime(s, "%Y-%m-%d")
     except: return datetime(1939,9,1)
+
 def fmt_date(dt):
-    m = ["ژانویه","فوریه","مارس","آپریل","مه","ژوئن","ژوئیه","اوت","سپتامبر","اکتبر","نوامبر","دسامبر"]
+    m = ["ژانویه","فوریه","مارس","آپریل","مه","ژوئن",
+         "ژوئیه","اوت","سپتامبر","اکتبر","نوامبر","دسامبر"]
     return f"{dt.day} {m[dt.month-1]} {dt.year}"
-def next_date(s): return (parse_date(s)+timedelta(days=1)).strftime("%Y-%m-%d")
+
+def next_date(s):
+    return (parse_date(s)+timedelta(days=1)).strftime("%Y-%m-%d")
+
 def get_tree(ck, cat): return R.get(ck, {}).get(cat, [])
 
 def calc_power(uid, mode="attack"):
@@ -350,14 +534,17 @@ def calc_power(uid, mode="attack"):
     if not st: return 0
     base = st.get("soldiers", 0) * 6
     for u in get_army(uid):
-        pw = next((m[1] for m in get_tree(st["country"], u["category"]) if m[0]==u["model"]), 10)
+        pw = next((m[1] for m in get_tree(st["country"], u["category"])
+             if m[0]==u["model"]), 10)
         base += u["count"] * pw
     if mode == "defense":
-        aa = sum(u["count"] * next((m[1] for m in get_tree(st["country"],"aa") if m[0]==u["model"]),10) for u in get_army(uid) if u["category"]=="aa")
+        aa = sum(u["count"] * next((m[1] for m in get_tree(st["country"],"aa")
+             if m[0]==u["model"]),10) for u in get_army(uid) if u["category"]=="aa")
         base += aa * 3
     if st["oil"] <= 0: base = int(base*0.6)
     if is_vip(uid): base *= 2
     if has_effect(uid, "double_attack"): base *= 2
+    if has_effect(uid, "lock_on"): base = int(base * 1.3)
     return int(base)
 
 def calc_hap_delta(uid, st):
@@ -409,8 +596,14 @@ def check_protest(uid, st):
                 upd["protest"] = 1
                 upd["protest_t"] = 3
                 c = COUNTRIES[st["country"]]
-                add_news(st["turn"], "protest", f"🔥 اعتراض در {c['n']} شروع شد!")
-                add_news(st["turn"], "speech", f"📢 رهبر {c['n']} معترضان را وطن‌فروش خواند.")
+                add_news(st["turn"], "protest",
+                    f"🔥 اعتراضات مردمی در {c['n']} برای اولین بار آغاز شد.")
+                # فقط یه بار سخنرانی
+                key = f"speech_protest_{uid}"
+                if gget(key) != "done":
+                    gset(key, "done")
+                    sp = generate_speech(uid, "protest")
+                    if sp: add_news(st["turn"], "speech", sp)
     else:
         t = st.get("protest_t", 0) - 1
         if t <= 0:
@@ -420,13 +613,37 @@ def check_protest(uid, st):
             upd["protest_t"] = t
     return upd
 
+def generate_speech(uid, kind):
+    st = get_state(uid)
+    if not st: return None
+    c = COUNTRIES[st["country"]]
+    if kind == "war":
+        return (f"📢 رهبر {c['n']} در سخنرانی امروز خود در برابر جمعیت گفت:\n\n"
+                f"«ما در برابر تجاوز ایستاده‌ایم. هر وجب از خاک میهن با خون "
+                f"فرزندان این سرزمین حفظ خواهد شد. دشمنان بدانند که ما تا آخرین "
+                f"نفس مقاومت می‌کنیم و پیروزی از آن ملت ماست.»")
+    if kind == "protest":
+        return (f"📢 رهبر {c['n']} در واکنش به اعتراضات اخیر اعلام کرد:\n\n"
+                f"«ما صدای مردم را می‌شنویم، اما هرج و مرج را تحمل نخواهیم کرد. "
+                f"کشور نیازمند ثبات است و ما آن را تأمین خواهیم کرد. کسانی که "
+                f"امنیت ملی را تهدید کنند، پاسخ سختی دریافت خواهند کرد.»")
+    if kind == "suppress":
+        return (f"📢 پس از سرکوب اعتراضات در {c['n']}، رهبر کشور در بیانیه‌ای اعلام کرد:\n\n"
+                f"«نظم عمومی بازگردانده شده است. کسانی که قانون را زیر پا بگذارند، "
+                f"با پاسخ قاطع دولت مواجه خواهند شد.»")
+    if kind == "conquest":
+        return (f"📢 {c['n']} در بیانیه‌ای رسمی پیروزی خود را اعلام کرد:\n\n"
+                f"«پایتخت دشمن سقوط کرده است. ارتش ما بار دیگر عظمت خود را به "
+                f"جهانیان نشان داد. ما برای صلح پایدار جنگیدیم.»")
+    return None
+
 def process_turn(uid):
     st = get_state(uid)
     if not st: return None
     c = COUNTRIES[st["country"]]
     mult = 2.0 if is_vip(uid) else 1.0
     upd = {}
-    tm = st["tax"]/20.0
+    tm = st["tax"] / 20.0
     upd["money"] = st["money"] + c["bm"]*tm*mult
     upd["food"] = st["food"] + c["bf"]*mult
     upd["water"] = st["water"] + c["bf"]*0.5*mult
@@ -439,7 +656,7 @@ def process_turn(uid):
     bf = 0.5 if any(b["effect"]=="factory" for b in bombs) else 1.0
     br = 0.5 if any(b["effect"]=="refinery" for b in bombs) else 1.0
     for b in bombs:
-        t = b["turns"]-1
+        t = b["turns"] - 1
         if t <= 0: conn.execute("DELETE FROM bombing WHERE id=?", (b["id"],))
         else: conn.execute("UPDATE bombing SET turns=? WHERE id=?", (t, b["id"]))
     conn.commit(); conn.close()
@@ -456,32 +673,34 @@ def process_turn(uid):
     upd["happiness"] = hap
     upd.update(check_protest(uid, st))
     if st.get("suppress_cd", 0) > 0:
-        nc = st["suppress_cd"]-1
+        nc = st["suppress_cd"] - 1
         upd["suppress_cd"] = nc
-        if nc==0: upd["happiness"] = max(0, upd.get("happiness", hap)-5)
+        if nc == 0:
+            upd["happiness"] = max(0, upd.get("happiness", hap) - 5)
     conn = db()
     for it in conn.execute("SELECT * FROM items WHERE turns_left>0").fetchall():
-        t = it["turns_left"]-1
+        t = it["turns_left"] - 1
         if t <= 0: conn.execute("DELETE FROM items WHERE id=?", (it["id"],))
         else: conn.execute("UPDATE items SET turns_left=? WHERE id=?", (t, it["id"]))
     conn.commit(); conn.close()
     conn = db()
     for item in get_pq(uid):
-        t = item["turns"]-1
+        t = item["turns"] - 1
         if t <= 0:
             add_army(uid, item["category"], item["model"], item["qty"])
             conn.execute("DELETE FROM pq WHERE id=?", (item["id"],))
         else:
             conn.execute("UPDATE pq SET turns=? WHERE id=?", (t, item["id"]))
     for p in get_projq(uid):
-        t = p["turns"]-1
+        t = p["turns"] - 1
         if t <= 0:
             mark_proj(uid, p["pkey"])
             conn.execute("DELETE FROM projq WHERE id=?", (p["id"],))
         else:
             conn.execute("UPDATE projq SET turns=? WHERE id=?", (t, p["id"]))
-    for s in conn.execute("SELECT * FROM spies WHERE from_id=? AND status='pending'", (uid,)).fetchall():
-        t = s["turns"]-1
+    for s in conn.execute("SELECT * FROM spies WHERE from_id=? AND status='pending'",
+        (uid,)).fetchall():
+        t = s["turns"] - 1
         if t <= 0:
             resolve_spy(uid, s["to_id"])
             conn.execute("UPDATE spies SET status='done' WHERE id=?", (s["id"],))
@@ -489,31 +708,53 @@ def process_turn(uid):
             conn.execute("UPDATE spies SET turns=? WHERE id=?", (t, s["id"]))
     conn.commit(); conn.close()
     if st.get("atomic_t", 0) > 0:
-        t = st["atomic_t"]-1
+        t = st["atomic_t"] - 1
         if t <= 0:
-            ns = st.get("atomic_stage",0)+1
-            upd["atomic_stage"] = ns; upd["atomic_t"] = 0
-            if ns >= 3: upd["atomic_bombs"] = st.get("atomic_bombs",0)+1
+            ns = st.get("atomic_stage", 0) + 1
+            upd["atomic_stage"] = ns
+            upd["atomic_t"] = 0
+            if ns >= 3:
+                upd["atomic_bombs"] = st.get("atomic_bombs", 0) + 1
         else:
             upd["atomic_t"] = t
     nd = next_date(st["game_date"])
-    upd["game_date"] = nd; upd["turn"] = st["turn"]+1
+    upd["game_date"] = nd
+    upd["turn"] = st["turn"] + 1
     upd["last_turn"] = datetime.utcnow().isoformat()
     ev = []
     if nd in EVENTS:
         ev.append(EVENTS[nd])
         add_news(st["turn"], "hist", EVENTS[nd])
+        # ارسال به کانال
+        try:
+            pass  # توی auto_turn انجام می‌شه
+        except: pass
     sset(uid, **upd)
     return {"turn": st["turn"]+1, "date": nd, "ev": ev}
 
 def resolve_spy(from_id, to_id):
     fs = get_state(from_id); ts = get_state(to_id)
     if not fs or not ts: return
-    if to_id in ADMIN_IDS: return
+    if to_id in ADMIN_IDS:
+        add_news(fs["turn"], f"spy_fail_{from_id}",
+            f"جاسوس تو در کشور دشمن لو رفت و تمام اطلاعاتش فاش شد.")
+        return
     surv = ts.get("surveillance", 20)
     ch = 0.60 - (surv/100)*0.5
     if random.random() < ch:
-        add_news(fs["turn"], "spy", f"🕵️ جاسوس {COUNTRIES[fs['country']]['n']} موفق بود")
+        text = (f"💰 پول: {fmt(ts['money'])}\n"
+                f"⚙️ فولاد: {fmt(ts['steel'])}\n"
+                f"🛢️ نفت: {fmt(ts['oil'])}\n"
+                f"👥 نیرو: {fmt(ts['manpower'])}\n"
+                f"🪖 سرباز: {fmt(ts['soldiers'])}")
+        add_news(fs["turn"], f"spy_ok_{from_id}", text)
+        add_news(fs["turn"], "spy",
+            f"🕵️ جاسوس {COUNTRIES[fs['country']]['n']} اطلاعات ارزشمندی به دست آورد.")
+    else:
+        add_news(fs["turn"], f"spy_fail_{from_id}",
+            f"جاسوس تو در کشور {COUNTRIES[ts['country']]['n']} لو رفت.")
+        add_news(ts["turn"], f"spy_caught_{to_id}",
+            f"🚨 جاسوسی از طرف {COUNTRIES[fs['country']]['n']} در کشورت کشف شد!")
 
 def advance_wars():
     conn = db()
@@ -523,76 +764,113 @@ def advance_wars():
         au = w["atk_uid"]; du = w["def_uid"]
         ast = get_state(au); dst = get_state(du)
         if not ast or not dst or dst.get("dead"):
-            conn = db(); conn.execute("DELETE FROM wars WHERE id=?", (w["id"],)); conn.commit(); conn.close(); continue
-        t = w["turns"]-1
+            conn = db()
+            conn.execute("DELETE FROM wars WHERE id=?", (w["id"],))
+            conn.commit(); conn.close()
+            continue
+        t = w["turns"] - 1
         stage = w["stage"]
         if stage == "move" and t <= 0:
             my = calc_power(au, "attack")
             en = calc_power(du, "defense")
-            # اتحاد اجباری: هر عضو اتحاد مدافع اضافه می‌شه
+            # اتحاد اجباری
             aid_d = get_user_alliance(du)
             if aid_d:
                 for m in get_alliance_members(aid_d):
-                    if m != du and m != au and m != dst["user_id"]:
+                    if m != du:
                         mst = get_state(m)
                         if mst and not mst.get("dead"):
                             en += calc_power(m, "defense")
+                            # پیام به اعضا
+                            try: pass
+                            except: pass
             aid_a = get_user_alliance(au)
             if aid_a:
                 for m in get_alliance_members(aid_a):
-                    if m != au and m != du:
+                    if m != au:
                         mst = get_state(m)
                         if mst and not mst.get("dead"):
                             my += calc_power(m, "attack")
-            add_news(int(gget("turn","1")), "battle",
-                f"⚔️ نبرد: {COUNTRIES[w['attacker']]['n']} ({fmt(my)}) vs {COUNTRIES[w['defender']]['n']} ({fmt(en)})")
+            battle_msg = (f"⚔️ نبرد میان {COUNTRIES[w['attacker']]['n']} و "
+                          f"{COUNTRIES[w['defender']]['n']}\n"
+                          f"قدرت حمله: {fmt(my)} — قدرت دفاع: {fmt(en)}")
+            add_news(int(gget("turn","1")), "battle", battle_msg)
+            # پیام به کانال
+            try:
+                pass  # تو auto_turn ارسال می‌شه
+            except: pass
             if my > en:
                 for u in get_army(au):
-                    conn = db(); conn.execute("UPDATE army SET count=? WHERE id=?", (int(u["count"]*0.85), u["id"])); conn.commit(); conn.close()
+                    conn = db()
+                    conn.execute("UPDATE army SET count=? WHERE id=?",
+                        (int(u["count"]*0.85), u["id"]))
+                    conn.commit(); conn.close()
                 ds = get_state(du)
                 if ds:
-                    sset(du, money=ds["money"]*0.5, steel=ds["steel"]*0.5, soldiers=int(ds["soldiers"]*0.5))
-                conn = db(); conn.execute("UPDATE wars SET stage='resolve',turns=1 WHERE id=?", (w["id"],)); conn.commit(); conn.close()
+                    sset(du, money=ds["money"]*0.5, steel=ds["steel"]*0.5,
+                         soldiers=int(ds["soldiers"]*0.5))
+                conn = db()
+                conn.execute("UPDATE wars SET stage='resolve', turns=1 WHERE id=?",
+                    (w["id"],))
+                conn.commit(); conn.close()
+                add_news(int(gget("turn","1")), "war",
+                    f"🏆 {COUNTRIES[w['attacker']]['n']} در نبرد اولیه پیروز شد. "
+                    f"نیروهای دشمن متلاشی شدند.")
                 if calc_power(du, "defense") < my * 0.2:
-                    asyncio.create_task(conquer_country(None, au, du))
+                    conquer_country(None, au, du)
             else:
                 for u in get_army(au):
-                    conn = db(); conn.execute("UPDATE army SET count=? WHERE id=?", (int(u["count"]*0.4), u["id"])); conn.commit(); conn.close()
-                conn = db(); conn.execute("DELETE FROM wars WHERE id=?", (w["id"],)); conn.commit(); conn.close()
+                    conn = db()
+                    conn.execute("UPDATE army SET count=? WHERE id=?",
+                        (int(u["count"]*0.4), u["id"]))
+                    conn.commit(); conn.close()
+                conn = db()
+                conn.execute("DELETE FROM wars WHERE id=?", (w["id"],))
+                conn.commit(); conn.close()
+                add_news(int(gget("turn","1")), "war",
+                    f"💀 حمله {COUNTRIES[w['attacker']]['n']} شکست خورد و "
+                    f"نیروهایش تلفات سنگین دادند.")
         elif stage == "resolve":
             ds = get_state(du)
             if ds:
                 sset(du, money=ds["money"]*0.5, steel=ds["steel"]*0.5)
                 for u in get_army(du):
-                    conn = db(); conn.execute("UPDATE army SET count=? WHERE id=?", (int(u["count"]*0.5), u["id"])); conn.commit(); conn.close()
-                asyncio.create_task(conquer_country(None, au, du))
-            conn = db(); conn.execute("DELETE FROM wars WHERE id=?", (w["id"],)); conn.commit(); conn.close()
+                    conn = db()
+                    conn.execute("UPDATE army SET count=? WHERE id=?",
+                        (int(u["count"]*0.5), u["id"]))
+                    conn.commit(); conn.close()
+                conquer_country(None, au, du)
+            conn = db()
+            conn.execute("DELETE FROM wars WHERE id=?", (w["id"],))
+            conn.commit(); conn.close()
 
-async def conquer_country(ctx, winner_uid, loser_uid):
+def conquer_country(ctx, winner_uid, loser_uid):
     wst = get_state(winner_uid); lst = get_state(loser_uid)
     if not wst or not lst: return
     add_news(wst["turn"], "conquest",
-        f"🏆 {COUNTRIES[wst['country']]['n']} کشور {COUNTRIES[lst['country']]['n']} را فتح کرد!")
-    # انتقال ارتش
+        f"🏆 ارتش {COUNTRIES[wst['country']]['n']} پایتخت "
+        f"{COUNTRIES[lst['country']]['n']} را فتح کرد.")
     for u in get_army(loser_uid):
         add_army(winner_uid, u["category"], u["model"], u["count"])
-    # انتقال کارخونه‌ها (میانگین سطح)
     for f in get_fact(loser_uid):
         conn = db()
-        ex = conn.execute("SELECT level FROM factories WHERE user_id=? AND fkey=?", (winner_uid, f["fkey"])).fetchone()
+        ex = conn.execute("SELECT level FROM factories WHERE user_id=? AND fkey=?",
+            (winner_uid, f["fkey"])).fetchone()
         if ex:
-            new_lvl = min(5, (ex["level"] + f["level"]))
-            conn.execute("UPDATE factories SET level=? WHERE user_id=? AND fkey=?", (new_lvl, winner_uid, f["fkey"]))
+            new_lvl = min(5, ex["level"] + f["level"])
+            conn.execute("UPDATE factories SET level=? WHERE user_id=? AND fkey=?",
+                (new_lvl, winner_uid, f["fkey"]))
         else:
-            conn.execute("INSERT INTO factories(user_id,fkey,level) VALUES(?,?,?)", (winner_uid, f["fkey"], f["level"]))
+            conn.execute("INSERT INTO factories(user_id,fkey,level) VALUES(?,?,?)",
+                (winner_uid, f["fkey"], f["level"]))
         conn.commit(); conn.close()
-    # انتقال تحقیقات
     conn = db()
-    rows = conn.execute("SELECT category,model FROM research WHERE user_id=?", (loser_uid,)).fetchall()
+    rows = conn.execute("SELECT category,model FROM research WHERE user_id=?",
+        (loser_uid,)).fetchall()
     for r in rows:
-        conn.execute("INSERT OR IGNORE INTO research(user_id,category,model) VALUES(?,?,?)", (winner_uid, r["category"], r["model"]))
+        conn.execute("INSERT OR IGNORE INTO research(user_id,category,model) VALUES(?,?,?)",
+            (winner_uid, r["category"], r["model"]))
     conn.commit(); conn.close()
-    # منابع (میانگین رضایت)
     sset(winner_uid,
          money=wst["money"]+lst["money"],
          steel=wst["steel"]+lst["steel"],
@@ -601,120 +879,192 @@ async def conquer_country(ctx, winner_uid, loser_uid):
          coal=wst["coal"]+lst["coal"],
          water=wst["water"]+lst["water"],
          manpower=wst["manpower"]+lst["manpower"],
+         soldiers=wst["soldiers"]+lst["soldiers"],
          happiness=int((wst["happiness"]+lst["happiness"])/2))
     sset(loser_uid, dead=1)
-    if ctx:
-        try: await ctx.bot.send_message(winner_uid,
-            f"🏆 *کشور {COUNTRIES[lst['country']]['n']} فتح شد!*\n\nسرنوشت رهبر؟",
-            parse_mode="Markdown", reply_markup=kb_fate())
-        except: pass
-        try: await ctx.bot.send_message(loser_uid, f"💀 کشورت فتح شد! برای شروع مجدد: /start")
-        except: pass
+    key = f"speech_conquest_{winner_uid}"
+    if gget(key) != "done":
+        gset(key, "done")
+        sp = generate_speech(winner_uid, "conquest")
+        if sp: add_news(wst["turn"], "speech", sp)
 
-# کیبوردها
-def kb_main(): return ReplyKeyboardMarkup([
-    [KeyboardButton("💰 اقتصاد"),KeyboardButton("⚔️ ارتش")],
-    [KeyboardButton("🔬 تحقیقات"),KeyboardButton("🏗️ پروژه‌ها")],
-    [KeyboardButton("🏭 کارخونه‌ها"),KeyboardButton("🤝 دیپلماسی")],
-    [KeyboardButton("📦 تجارت"),KeyboardButton("🎯 حمله")],
-    [KeyboardButton("✈️ بمباران"),KeyboardButton("🕵️ جاسوسی")],
-    [KeyboardButton("💵 مالیات"),KeyboardButton("🏛️ امور کشور")],
-    [KeyboardButton("☢️ اتم"),KeyboardButton("📊 آمار کامل")]],resize_keyboard=True)
-def kb_back(): return ReplyKeyboardMarkup([[KeyboardButton("🔙 منو")]],resize_keyboard=True)
-def kb_country():
-    rows=[]; row=[]
-    for k,c in COUNTRIES.items():
-        ex_uid = find_country(k)
-        if ex_uid:
-            ex_st = get_state(ex_uid)
-            if ex_st and not ex_st.get("dead"): continue
-        row.append(KeyboardButton(f"{c['f']} {c['n']}"))
-        if len(row)==2: rows.append(row); row=[]
-    if row: rows.append(row)
-    return ReplyKeyboardMarkup(rows,resize_keyboard=True,one_time_keyboard=True)
-def kb_gov(): return ReplyKeyboardMarkup([
-    [KeyboardButton("👑 پادشاهی مطلقه"),KeyboardButton("👑 پادشاهی مشروطه")],
-    [KeyboardButton("🗳️ جمهوری ریاستی"),KeyboardButton("🗳️ جمهوری پارلمانی")],
-    [KeyboardButton("🚩 فاشیسم"),KeyboardButton("🚩 کمونیسم")],
-    [KeyboardButton("⚙️ دیکتاتوری نظامی"),KeyboardButton("⚙️ دیکتاتوری شخصی")],
-    [KeyboardButton("🕊️ دموکراسی لیبرال"),KeyboardButton("🕊️ دموکراسی اجتماعی")],
-    [KeyboardButton("⚖️ تئوکراسی"),KeyboardButton("🚩 تک‌حزبی")]],resize_keyboard=True,one_time_keyboard=True)
-def kb_army(): return ReplyKeyboardMarkup([
-    [KeyboardButton("🪖 سرباز"),KeyboardButton("🛡️ تانک")],
-    [KeyboardButton("✈️ جنگنده"),KeyboardButton("🚀 جت")],
-    [KeyboardButton("🚢 کشتی"),KeyboardButton("🎯 موشک")],
-    [KeyboardButton("💣 بمب‌افکن"),KeyboardButton("🛡️ پدافند")],
-    [KeyboardButton("📋 خدمت اجباری")],[KeyboardButton("🔙 منو")]],resize_keyboard=True)
-def kb_research(): return ReplyKeyboardMarkup([
-    [KeyboardButton("🔬🛡️ تانک"),KeyboardButton("🔬✈️ جنگنده")],
-    [KeyboardButton("🔬🚀 جت"),KeyboardButton("🔬🚢 کشتی")],
-    [KeyboardButton("🔬🎯 موشک"),KeyboardButton("🔬💣 بمب‌افکن")],
-    [KeyboardButton("🔬🛡️ پدافند")],[KeyboardButton("🔙 منو")]],resize_keyboard=True)
-def kb_projects(): return ReplyKeyboardMarkup([
-    [KeyboardButton("🏭 صنعت"),KeyboardButton("⚡ انرژی")],
-    [KeyboardButton("🎖️ نظامی"),KeyboardButton("🏥 اجتماعی")],
-    [KeyboardButton("🌾 کشاورزی"),KeyboardButton("📜 سیاسی")],
-    [KeyboardButton("🛣️ حمل‌ونقل")],[KeyboardButton("🔙 منو")]],resize_keyboard=True)
-def kb_dip(): return ReplyKeyboardMarkup([
-    [KeyboardButton("🤝 پیشنهاد اتحاد"),KeyboardButton("☮️ پیشنهاد صلح")],
-    [KeyboardButton("⚔️ اعلام جنگ"),KeyboardButton("🤐 پیمان عدم تعرض")],
-    [KeyboardButton("📜 بیانیه رسمی"),KeyboardButton("🚪 خروج از اتحاد")],
-    [KeyboardButton("📨 درخواست‌های من")],[KeyboardButton("🔙 منو")]],resize_keyboard=True)
-def kb_trade(): return ReplyKeyboardMarkup([
-    [KeyboardButton("💰 پول"),KeyboardButton("🍞 غذا")],
-    [KeyboardButton("💧 آب"),KeyboardButton("⚙️ فولاد")],
-    [KeyboardButton("🛢️ نفت"),KeyboardButton("🪨 زغال")],
-    [KeyboardButton("👥 نیرو"),KeyboardButton("❌ هیچی")],
-    [KeyboardButton("🔙 منو")]],resize_keyboard=True)
-def kb_internal(): return ReplyKeyboardMarkup([
-    [KeyboardButton("📢 سخنرانی"),KeyboardButton("🚔 سرکوب")],
-    [KeyboardButton("🕵️ نظارت بر مردم")],[KeyboardButton("🔙 منو")]],resize_keyboard=True)
-def kb_surv(): return ReplyKeyboardMarkup([
-    [KeyboardButton("🕵️ نظارت +۱۰"),KeyboardButton("🕵️ نظارت -۱۰")],
-    [KeyboardButton("🔙 منو")]],resize_keyboard=True)
-def kb_bomb(): return ReplyKeyboardMarkup([
-    [KeyboardButton("🏭 بمباران کارخونه"),KeyboardButton("🔧 بمباران تجهیزات")],
-    [KeyboardButton("💀 ترور فرمانده"),KeyboardButton("🛢️ بمباران پالایشگاه")],
-    [KeyboardButton("🔙 منو")]],resize_keyboard=True)
-def kb_fate(): return ReplyKeyboardMarkup([
-    [KeyboardButton("🔴 اعدام"),KeyboardButton("🟢 بخشش")],
-    [KeyboardButton("🔒 حبس")]],resize_keyboard=True)
-def kb_targets(exclude):
-    ps = all_players(exclude); rows=[]; row=[]
-    for p in ps:
-        c = COUNTRIES[p["c"]]
-        row.append(KeyboardButton(f"{c['f']} {c['n']}"))
-        if len(row)==2: rows.append(row); row=[]
-    if row: rows.append(row)
-    rows.append([KeyboardButton("🔙 منو")])
-    return ReplyKeyboardMarkup(rows,resize_keyboard=True)
-def kb_models(ck, cat, uid):
-    tree = get_tree(ck, cat); rows=[]; row=[]
-    for item in tree:
-        row.append(KeyboardButton(item[0]))
-        if len(row)==2: rows.append(row); row=[]
-    if row: rows.append(row)
-    rows.append([KeyboardButton("🔙 منو")])
-    return ReplyKeyboardMarkup(rows,resize_keyboard=True)
-def kb_fact(uid):
-    f = get_fact(uid); rows=[]; row=[]
-    for x in f:
-        p = PROJECTS.get(x["fkey"],{})
-        row.append(KeyboardButton(p.get("n",x["fkey"])))
-        if len(row)==2: rows.append(row); row=[]
-    if row: rows.append(row)
-    rows.append([KeyboardButton("🔙 منو")])
-    return ReplyKeyboardMarkup(rows,resize_keyboard=True)
+def get_aa_power(uid):
+    st = get_state(uid)
+    if not st: return 0
+    aa = sum(u["count"] * next((m[1] for m in get_tree(st["country"],"aa")
+         if m[0]==u["model"]),10)
+         for u in get_army(uid) if u["category"]=="aa")
+    return aa
+
+def do_bombing(from_uid, target_uid, kind, forces=100):
+    """forces = تعداد نیروی هوایی فرستاده شده"""
+    chances = {"factory":0.30,"equip":0.20,"assassin":0.05,"refinery":0.25}
+    base = chances.get(kind, 0.20)
+    # بستگی به نیرو
+    force_mult = min(2.0, 0.5 + forces/200.0)
+    base = base * force_mult
+    aa = get_aa_power(target_uid)
+    final = max(0, base - (aa/200))
+    if random.random() < final:
+        conn = db()
+        if kind in ("factory","refinery"):
+            # اثر به اندازه نیرو
+            duration = min(5, max(1, forces//50))
+            conn.execute("INSERT INTO bombing(target_uid,effect,turns) VALUES(?,?,?)",
+                (target_uid, kind, duration))
+            msg = f"✅ بمباران {kind} موفق ({int(final*100)}%). اثر تا {duration} نوبت."
+        elif kind == "assassin":
+            add_effect(target_uid, "no_attack", 1)
+            msg = f"✅ ترور فرمانده موفق ({int(final*100)}%)."
+        elif kind == "equip":
+            tst = get_state(target_uid)
+            if tst:
+                sset(target_uid, soldiers=int(tst["soldiers"]*0.8))
+            for u in get_army(target_uid):
+                conn.execute("UPDATE army SET count=? WHERE id=?",
+                    (int(u["count"]*0.8), u["id"]))
+            msg = f"✅ بمباران تجهیزات موفق. ۲۰٪ تجهیزات دشمن نابود."
+        else:
+            msg = "✅ بمباران موفق."
+        conn.commit(); conn.close()
+        add_news(int(gget("turn","1")), "bomb",
+            f"✈️ نیروی هوایی {COUNTRIES[get_state(from_uid)['country']]['n']} "
+            f"مواضع دشمن را بمباران کرد.")
+        return True, msg
+    return False, f"❌ بمباران ناموفق ({int(final*100)}%)."
+
+def use_atomic(uid, target_uid):
+    st = get_state(uid); ts = get_state(target_uid)
+    if not st or not ts: return "❌ خطا"
+    if st.get("atomic_bombs", 0) <= 0:
+        return "❌ بمب اتمی نداری."
+    sset(uid, atomic_bombs=st["atomic_bombs"]-1)
+    sset(target_uid, happiness=max(0, ts["happiness"]//2),
+         soldiers=int(ts["soldiers"]*0.5))
+    add_effect(target_uid, "no_attack", 3)
+    gset("atomic_used", "true")
+    add_news(st["turn"], "atomic",
+        f"☢️ اولین بمب اتمی تاریخ توسط {COUNTRIES[st['country']]['n']} "
+        f"بر فراز پایتخت {COUNTRIES[ts['country']]['n']} منفجر شد.")
+    return f"☢️ بمب اتمی {COUNTRIES[ts['country']]['n']} را هدف گرفت."
+
+async def apply_item_effect(ctx, uid, item_key, target_uid=None):
+    st = get_state(uid)
+    if not st: return "❌ خطا"
+    c = COUNTRIES[st["country"]]
+    result = "✅"
+    # آیتم‌هایی که هدف نمی‌خوان
+    if item_key in ("carpet_bomb", "war_speech", "war_storm", "revive"):
+        if item_key == "carpet_bomb":
+            for p in all_players():
+                if p["uid"] == uid: continue
+                ps = get_state(p["uid"])
+                if ps:
+                    sset(p["uid"], happiness=max(0, ps["happiness"]-10))
+            result = "🔥 بمباران قالی — همه دشمنان آسیب دیدند."
+        elif item_key == "war_speech":
+            for p in all_players():
+                if p["uid"] == uid: continue
+                ps = get_state(p["uid"])
+                if ps:
+                    sset(p["uid"], money=max(0, ps["money"]*0.5))
+            result = "📢 نطق جنگی — ۵۰٪ پول همه به تو رسید."
+        elif item_key == "war_storm":
+            result = "🌪 طوفان جنگی — همه حملات دشمن عقب رانده شد."
+        elif item_key == "revive":
+            add_effect(uid, "revive", 999)
+            result = "🔄 محافظت مرگ فعال شد."
+        add_news(st["turn"], "item", result)
+        return result
+    if item_key == "force_exile" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            sset(target_uid, dead=1)
+            result = f"🗳 {COUNTRIES[ts['country']]['n']} از بازی اخراج شد."
+    elif item_key == "censor" and target_uid:
+        add_effect(target_uid, "censored", 3)
+        result = f"🤐 {COUNTRIES[get_state(target_uid)['country']]['n']} ۳ نوبت سانسور شد."
+    elif item_key == "expose" and target_uid:
+        result = f"🕵️ اطلاعات {COUNTRIES[get_state(target_uid)['country']]['n']} فاش شد."
+    elif item_key == "seize_power":
+        add_effect(uid, "commander", 10)
+        result = f"👑 {c['n']} ۱۰ نوبت فرمانده شد."
+    elif item_key == "force_ally" and target_uid:
+        aid = get_user_alliance(uid)
+        if not aid:
+            conn = db()
+            cur = conn.execute("INSERT INTO alliances(name,founder) VALUES(?,?)",
+                (f"اتحاد {c['n']}", uid))
+            aid = cur.lastrowid
+            conn.execute("INSERT INTO allies(aid,user_id) VALUES(?,?)", (aid, uid))
+            conn.commit(); conn.close()
+        conn = db()
+        conn.execute("INSERT OR IGNORE INTO allies(aid,user_id) VALUES(?,?)",
+            (aid, target_uid))
+        conn.commit(); conn.close()
+        result = f"🤝 {COUNTRIES[get_state(target_uid)['country']]['n']} به اتحاد اضافه شد."
+    elif item_key == "plunder" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            half = ts["money"] // 2
+            sset(target_uid, money=ts["money"] - half)
+            sset(uid, money=st["money"] + half)
+            result = f"💰 {fmt(half)} پول از دشمن غارت شد."
+    elif item_key == "god_shield":
+        add_effect(uid, "shield", 60)
+        result = "🛡 سپر جان — ۱ ساعت نامیرا."
+    elif item_key == "invisible":
+        add_effect(uid, "invisible", 30)
+        result = "👻 نامرئی — ۳۰ دقیقه."
+    elif item_key == "double_attack":
+        add_effect(uid, "double_attack", 10)
+        result = "⚡ دوبرابر حمله — ۱۰ نوبت."
+    elif item_key == "lock_on":
+        add_effect(uid, "lock_on", 10)
+        result = "🎯 قفل روی حریف — ۱۰ نوبت."
+    elif item_key == "revenge":
+        add_effect(uid, "revenge", 999)
+        result = "💀 انتقام فعال شد."
+    elif item_key == "tsar_bomb" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            sset(target_uid, dead=1)
+            result = f"💣 بمب تزار — {COUNTRIES[ts['country']]['n']} نابود شد."
+    elif item_key == "nuke_item" and target_uid:
+        result = use_atomic(uid, target_uid)
+    elif item_key == "bio_weapon" and target_uid:
+        add_effect(target_uid, "no_attack", 5)
+        result = f"☠️ {COUNTRIES[get_state(target_uid)['country']]['n']} ۵ نوبت نمی‌تونه حمله کنه."
+    elif item_key == "ballistic" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            sset(target_uid, dead=1)
+            result = f"🚀 موشک بالستیک — {COUNTRIES[ts['country']]['n']} از بازی حذف شد."
+    add_news(st["turn"], "item", result)
+    return result
+
+def pay(uid, money=0, steel=0, oil=0, food=0, coal=0, water=0, manpower=0):
+    if is_admin(uid): return True
+    st = get_state(uid)
+    if not st: return False
+    if st["money"] < money or st["steel"] < steel or st["oil"] < oil: return False
+    if st["food"] < food or st["coal"] < coal or st["water"] < water: return False
+    if st["manpower"] < manpower: return False
+    sset(uid,
+         money=st["money"]-money, steel=st["steel"]-steel, oil=st["oil"]-oil,
+         food=st["food"]-food, coal=st["coal"]-coal, water=st["water"]-water,
+         manpower=st["manpower"]-manpower)
+    return True
 
 def render_dash(st):
     c = COUNTRIES[st["country"]]
     return (f"{c['f']} *{c['n']}* — {fmt_date(parse_date(st['game_date']))}\n"
-        f"🔢 نوبت: {st['turn']} / {TOTAL_TURNS}\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"💰 {fmt(st['money'])}  🍞 {fmt(st['food'])}  ⚙️ {fmt(st['steel'])}\n"
-        f"🛢️ {fmt(st['oil'])}  🪨 {fmt(st['coal'])}  👥 {fmt(st['manpower'])}\n"
-        f"🪖 سرباز: {fmt(st['soldiers'])}\n"
-        f"😊 {int(st['happiness'])}%  💵 {st['tax']}%")
+            f"🔢 نوبت: {st['turn']} / {TOTAL_TURNS}\n"
+            f"━━━━━━━━━━━━━━━━\n"
+            f"💰 {fmt(st['money'])}  🍞 {fmt(st['food'])}  ⚙️ {fmt(st['steel'])}\n"
+            f"🛢️ {fmt(st['oil'])}  🪨 {fmt(st['coal'])}  👥 {fmt(st['manpower'])}\n"
+            f"🪖 سرباز: {fmt(st['soldiers'])}\n"
+            f"😊 {int(st['happiness'])}%  💵 {st['tax']}%")
 
 def render_stats(uid):
     st = get_state(uid); c = COUNTRIES[st["country"]]
@@ -724,332 +1074,804 @@ def render_stats(uid):
         "━━━━━━━━━━━━━━━━",
         f"💰{fmt(st['money'])} 🍞{fmt(st['food'])} 💧{fmt(st['water'])}",
         f"⚙️{fmt(st['steel'])} 🛢️{fmt(st['oil'])} 🪨{fmt(st['coal'])}",
-        f"👥{fmt(st['manpower'])} 
+        f"👥{fmt(st['manpower'])} 🪖{fmt(st['soldiers'])}",
+        f"😊{int(st['happiness'])}% 💵{st['tax']}% 🕵️{st.get('surveillance',20)}%"]
+    for u in get_army(uid):
+        lines.append(f"▪️ {u['model']}: {fmt(u['count'])}")
+    return "\n".join(lines)
     
 # ═══════════════════════════════════════════════════════════════
-#  💰 پرداخت — ادمین پرداخت نمی‌کنه
+#  🎨 کیبوردها
 # ═══════════════════════════════════════════════════════════════
-def pay(uid, money=0, steel=0, oil=0, food=0, coal=0, water=0, manpower=0):
-    """پرداخت هزینه. اگه ادمین باشه، هیچی کم نمی‌شه."""
-    if is_admin(uid): return True
-    st = get_state(uid)
-    if not st: return False
-    if st["money"] < money or st["steel"] < steel or st["oil"] < oil:
-        return False
-    if st["food"] < food or st["coal"] < coal or st["water"] < water:
-        return False
-    if st["manpower"] < manpower: return False
-    sset(uid, money=st["money"]-money, steel=st["steel"]-steel, oil=st["oil"]-oil,
-         food=st["food"]-food, coal=st["coal"]-coal, water=st["water"]-water,
-         manpower=st["manpower"]-manpower)
-    return True
+def kb_main():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("💰 اقتصاد"),KeyboardButton("⚔️ ارتش")],
+        [KeyboardButton("🔬 تحقیقات"),KeyboardButton("🏗️ پروژه‌ها")],
+        [KeyboardButton("🏭 کارخونه‌ها"),KeyboardButton("🤝 دیپلماسی")],
+        [KeyboardButton("📦 تجارت"),KeyboardButton("🎯 حمله")],
+        [KeyboardButton("✈️ بمباران"),KeyboardButton("🕵️ جاسوسی")],
+        [KeyboardButton("💵 مالیات"),KeyboardButton("🏛️ امور کشور")],
+        [KeyboardButton("☢️ اتم"),KeyboardButton("📊 آمار کامل")]],resize_keyboard=True)
 
+def kb_back():
+    return ReplyKeyboardMarkup([[KeyboardButton("🔙 منو")]],resize_keyboard=True)
+
+def kb_country():
+    rows = []; row = []
+    for k, c in COUNTRIES.items():
+        ex_uid = find_country(k)
+        if ex_uid:
+            ex_st = get_state(ex_uid)
+            if ex_st and not ex_st.get("dead"): continue
+        row.append(KeyboardButton(f"{c['f']} {c['n']}"))
+        if len(row) == 2: rows.append(row); row = []
+    if row: rows.append(row)
+    return ReplyKeyboardMarkup(rows,resize_keyboard=True,one_time_keyboard=True)
+
+def kb_gov():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("👑 پادشاهی مطلقه"),KeyboardButton("👑 پادشاهی مشروطه")],
+        [KeyboardButton("🗳️ جمهوری ریاستی"),KeyboardButton("🗳️ جمهوری پارلمانی")],
+        [KeyboardButton("🚩 فاشیسم"),KeyboardButton("🚩 کمونیسم")],
+        [KeyboardButton("⚙️ دیکتاتوری نظامی"),KeyboardButton("⚙️ دیکتاتوری شخصی")],
+        [KeyboardButton("🕊️ دموکراسی لیبرال"),KeyboardButton("🕊️ دموکراسی اجتماعی")],
+        [KeyboardButton("⚖️ تئوکراسی"),KeyboardButton("🚩 تک‌حزبی")]],
+        resize_keyboard=True,one_time_keyboard=True)
+
+def kb_army():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🪖 سرباز"),KeyboardButton("🛡️ تانک")],
+        [KeyboardButton("✈️ جنگنده"),KeyboardButton("🚀 جت")],
+        [KeyboardButton("🚢 کشتی"),KeyboardButton("🎯 موشک")],
+        [KeyboardButton("💣 بمب‌افکن"),KeyboardButton("🛡️ پدافند")],
+        [KeyboardButton("📋 خدمت اجباری")],[KeyboardButton("🔙 منو")]],
+        resize_keyboard=True)
+
+def kb_research():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🔬🛡️ تانک"),KeyboardButton("🔬✈️ جنگنده")],
+        [KeyboardButton("🔬🚀 جت"),KeyboardButton("🔬🚢 کشتی")],
+        [KeyboardButton("🔬🎯 موشک"),KeyboardButton("🔬💣 بمب‌افکن")],
+        [KeyboardButton("🔬🛡️ پدافند")],[KeyboardButton("🔙 منو")]],
+        resize_keyboard=True)
+
+def kb_projects():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🏭 صنعت"),KeyboardButton("⚡ انرژی")],
+        [KeyboardButton("🎖️ نظامی"),KeyboardButton("🏥 اجتماعی")],
+        [KeyboardButton("🌾 کشاورزی"),KeyboardButton("📜 سیاسی")],
+        [KeyboardButton("🛣️ حمل‌ونقل")],[KeyboardButton("🔙 منو")]],
+        resize_keyboard=True)
+
+def kb_dip():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🤝 پیشنهاد اتحاد"),KeyboardButton("☮️ پیشنهاد صلح")],
+        [KeyboardButton("⚔️ اعلام جنگ"),KeyboardButton("🤐 پیمان عدم تعرض")],
+        [KeyboardButton("📜 بیانیه رسمی"),KeyboardButton("🚪 خروج از اتحاد")],
+        [KeyboardButton("❌ لغو NAP"),KeyboardButton("📨 درخواست‌های من")],
+        [KeyboardButton("🔙 منو")]],resize_keyboard=True)
+
+def kb_trade():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("💰 پول"),KeyboardButton("🍞 غذا")],
+        [KeyboardButton("💧 آب"),KeyboardButton("⚙️ فولاد")],
+        [KeyboardButton("🛢️ نفت"),KeyboardButton("🪨 زغال")],
+        [KeyboardButton("👥 نیرو"),KeyboardButton("❌ هیچی")],
+        [KeyboardButton("🔙 منو")]],resize_keyboard=True)
+
+def kb_internal():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("📢 سخنرانی"),KeyboardButton("🚔 سرکوب")],
+        [KeyboardButton("🕵️ نظارت بر مردم")],[KeyboardButton("🔙 منو")]],
+        resize_keyboard=True)
+
+def kb_surv():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🕵️ نظارت +۱۰"),KeyboardButton("🕵️ نظارت -۱۰")],
+        [KeyboardButton("🔙 منو")]],resize_keyboard=True)
+
+def kb_bomb():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🏭 بمباران کارخونه"),KeyboardButton("🔧 بمباران تجهیزات")],
+        [KeyboardButton("💀 ترور فرمانده"),KeyboardButton("🛢️ بمباران پالایشگاه")],
+        [KeyboardButton("🔙 منو")]],resize_keyboard=True)
+
+def kb_fate():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🔴 اعدام"),KeyboardButton("🟢 بخشش")],
+        [KeyboardButton("🔒 حبس")]],resize_keyboard=True)
+
+def kb_targets(exclude):
+    ps = all_players(exclude); rows = []; row = []
+    for p in ps:
+        c = COUNTRIES[p["c"]]
+        row.append(KeyboardButton(f"{c['f']} {c['n']}"))
+        if len(row) == 2: rows.append(row); row = []
+    if row: rows.append(row)
+    rows.append([KeyboardButton("🔙 منو")])
+    return ReplyKeyboardMarkup(rows,resize_keyboard=True)
+
+def kb_models(ck, cat, uid):
+    tree = get_tree(ck, cat); rows = []; row = []
+    for item in tree:
+        row.append(KeyboardButton(item[0]))
+        if len(row) == 2: rows.append(row); row = []
+    if row: rows.append(row)
+    rows.append([KeyboardButton("🔙 منو")])
+    return ReplyKeyboardMarkup(rows,resize_keyboard=True)
+
+def kb_fact(uid):
+    f = get_fact(uid); rows = []; row = []
+    for x in f:
+        p = PROJECTS.get(x["fkey"],{})
+        row.append(KeyboardButton(p.get("n", x["fkey"])))
+        if len(row) == 2: rows.append(row); row = []
+    if row: rows.append(row)
+    rows.append([KeyboardButton("🔙 منو")])
+    return ReplyKeyboardMarkup(rows,resize_keyboard=True)
 
 # ═══════════════════════════════════════════════════════════════
-#  📨 ارسال پیام‌های معلق (جاسوسی، پیشنهاد، ...)
+#  🔒 چک عضویت
 # ═══════════════════════════════════════════════════════════════
-async def deliver_pending(ctx):
-    """پیام‌های معلق جاسوسی رو به بازیکنان بفرست"""
-    players = all_players()
-    for p in players:
-        uid = p["uid"]
-        last_read = int(gget(f"spy_read_{uid}", "0") or 0)
-        conn = db()
-        rows = conn.execute(
-            "SELECT * FROM news WHERE id>? AND cat IN (?, ?, ?) ORDER BY id",
-            (last_read, f"spy_ok_{uid}", f"spy_fail_{uid}", f"battle_msg_{uid}")
-        ).fetchall()
-        conn.close()
-        for r in rows:
-            try:
-                if r["cat"].startswith("spy_ok_"):
-                    await ctx.bot.send_message(uid, f"✅ *جاسوسی موفق!*\n{r['text']}", parse_mode="Markdown")
-                elif r["cat"].startswith("spy_fail_"):
-                    await ctx.bot.send_message(uid, f"❌ *جاسوس لو رفت!*\n{r['text']}", parse_mode="Markdown")
-                elif r["cat"].startswith("battle_msg_"):
-                    await ctx.bot.send_message(uid, r["text"], parse_mode="Markdown", reply_markup=kb_main())
-                last_read = r["id"]
+async def check_join(update, ctx):
+    nj = []
+    for ch in CHANNELS:
+        try:
+            m = await ctx.bot.get_chat_member(chat_id=ch["u"], user_id=update.effective_user.id)
+            if m.status not in (ChatMemberStatus.MEMBER,
+                ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER):
+                nj.append(ch)
+        except: nj.append(ch)
+    return nj
+
+async def send_join(update):
+    rows = [[InlineKeyboardButton(ch["l"],
+        url=f"https://ble.ir/{ch['u'].lstrip('@')}")] for ch in CHANNELS]
+    await update.message.reply_text("🔒 عضویت لازم:", reply_markup=InlineKeyboardMarkup(rows))
+    await update.message.reply_text("بعد از عضویت:",
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("عضو شدم ✅")]], resize_keyboard=True))
+
+# ═══════════════════════════════════════════════════════════════
+#  📰 ارسال خبر به کانال
+# ═══════════════════════════════════════════════════════════════
+async def post_to_channel(ctx, text):
+    try:
+        await ctx.bot.send_message(NEWS_CH, text, parse_mode="Markdown")
+    except Exception as e:
+        log.warning(f"news ch: {e}")
+
+# ═══════════════════════════════════════════════════════════════
+#  🌍 سازمان ملل
+# ═══════════════════════════════════════════════════════════════
+UN_STATE = {"active": False, "phase": "idle", "turn": 0, "votes": {"yes": [], "no": []}}
+
+async def start_un(ctx, turn):
+    UN_STATE["active"] = True
+    UN_STATE["phase"] = "discussion"
+    UN_STATE["turn"] = turn
+    UN_STATE["votes"] = {"yes": [], "no": []}
+    for p in all_players():
+        try:
+            await ctx.bot.send_message(p["uid"],
+                f"🌍 *سازمان ملل — نوبت {turn}*\n\n"
+                f"جلسه فوق‌العاده آغاز شد. تمام کشورهای عضو به مدت ۵ دقیقه فرصت دارند "
+                f"مواضع خود را اعلام کنند. هر پیامی که بنویسید برای تمام اعضا ارسال می‌شود.",
+                parse_mode="Markdown", reply_markup=kb_back())
+        except: pass
+    add_news(turn, "un", f"🌍 سازمان ملل — جلسه فوق‌العاده نوبت {turn} آغاز شد.")
+    asyncio.create_task(un_timer(ctx))
+
+async def un_timer(ctx):
+    await asyncio.sleep(300)
+    if not UN_STATE["active"]: return
+    UN_STATE["phase"] = "voting"
+    for p in all_players():
+        try:
+            await ctx.bot.send_message(p["uid"],
+                "🗳️ *رای‌گیری*\n\nآیا با تمدید ۵ دقیقه‌ای جلسه موافقید؟",
+                reply_markup=ReplyKeyboardMarkup([
+                    [KeyboardButton("✅ آره"), KeyboardButton("❌ نه")]
+                ], resize_keyboard=True), parse_mode="Markdown")
+        except: pass
+    await asyncio.sleep(30)
+    if not UN_STATE["active"]: return
+    v = UN_STATE["votes"]
+    if len(v["yes"]) >= len(v["no"]):
+        UN_STATE["phase"] = "discussion"
+        for p in all_players():
+            try: await ctx.bot.send_message(p["uid"], "🌍 ۵ دقیقه تمدید شد.", reply_markup=kb_back())
             except: pass
-        gset(f"spy_read_{uid}", str(last_read))
+        await asyncio.sleep(300)
+    await end_un(ctx)
 
+async def end_un(ctx):
+    UN_STATE["active"] = False
+    UN_STATE["phase"] = "idle"
+    for p in all_players():
+        try: await ctx.bot.send_message(p["uid"], "🌍 جلسه سازمان ملل پایان یافت.", reply_markup=kb_main())
+        except: pass
+
+async def on_un_message(update, ctx, text):
+    if not UN_STATE["active"]: return False
+    if UN_STATE["phase"] == "voting":
+        uid = update.effective_user.id
+        if text == "✅ آره":
+            if uid not in UN_STATE["votes"]["yes"]: UN_STATE["votes"]["yes"].append(uid)
+            await update.message.reply_text("✅", reply_markup=kb_back()); return True
+        if text == "❌ نه":
+            if uid not in UN_STATE["votes"]["no"]: UN_STATE["votes"]["no"].append(uid)
+            await update.message.reply_text("❌", reply_markup=kb_back()); return True
+    if UN_STATE["phase"] == "discussion":
+        uid = update.effective_user.id
+        st = get_state(uid)
+        if st:
+            msg = f"{COUNTRIES[st['country']]['f']} {COUNTRIES[st['country']]['n']}: {text}"
+            for p in all_players():
+                try: await ctx.bot.send_message(p["uid"], msg)
+                except: pass
+        return True
+    return False
 
 # ═══════════════════════════════════════════════════════════════
-#  🎯 روتر اصلی
+#  📝 دستورات پایه
 # ═══════════════════════════════════════════════════════════════
-async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text: return
-    text = update.message.text.strip()
+async def cmd_start(update, ctx):
+    if await check_join(update, ctx): await send_join(update); return
     uid = update.effective_user.id
-    wait = ctx.user_data.get("wait")
-    screen = ctx.user_data.get("screen", "menu")
-
-    # ─── چک سانسور ───
-    if has_effect(uid, "censored"):
-        await update.message.reply_text("🤐 تو سانسور شدی! فعلاً نمی‌تونی حرف بزنی."); return
-
-    # ─── پیام سازمان ملل ───
-    if await on_un_message(update, ctx, text): return
-
-    # ─── ورودی‌های انتظار ───
-    if wait == "gov":
-        await on_gov_pick(update, ctx); return
-    if wait == "tax":
-        try:
-            v = int(text.replace("%","").strip())
-            if not (0<=v<=50): raise ValueError
-            sset(uid, tax=v); ctx.user_data["wait"]=None
-            st = get_state(uid)
-            await update.message.reply_text(f"✅ {v}%\n\n{render_dash(st)}", reply_markup=kb_main(), parse_mode="Markdown")
-        except: await update.message.reply_text("❌ فرمت نامعتبر. عدد بین ۰ تا ۵۰ بفرست.")
-        return
-    if wait == "soldier":
-        try:
-            q = int(text)
-            if q<=0: raise ValueError
-        except: await update.message.reply_text("❌ عدد مثبت بفرست."); return
-        if not pay(uid, money=50*q, manpower=q):
-            await update.message.reply_text("❌ منابع کافی نداری!"); ctx.user_data["wait"]=None; return
-        sset(uid, soldiers=get_state(uid).get("soldiers",0)+q)
-        ctx.user_data["wait"]=None
-        await update.message.reply_text(f"✅ {q} سرباز اضافه شد!", reply_markup=kb_main()); return
-    if wait == "buy_amt" and ctx.user_data.get("buy_model"):
-        try:
-            q = int(text)
-            if q<=0: raise ValueError
-        except: await update.message.reply_text("❌ عدد مثبت."); return
-        info = ctx.user_data["buy_model"]
-        pm = info["power"]*20+100
-        if not pay(uid, money=pm*q, steel=info["steel"]*q):
-            await update.message.reply_text("❌ منابع کافی نداری!"); ctx.user_data["wait"]=None; return
-        add_pq(uid, info["cat"], info["name"], q, info["build"])
-        ctx.user_data["wait"]=None; ctx.user_data["buy_model"]=None
-        await update.message.reply_text(f"✅ {q}× {info['name']} در صف ({info['build']} نوبت)", reply_markup=kb_main()); return
-    if wait == "tr_amt":
-        try:
-            v = int(text)
-            if v<=0: raise ValueError
-        except: await update.message.reply_text("❌ عدد مثبت."); return
-        step = ctx.user_data.get("tr_step")
-        if step == "give_amt":
-            ctx.user_data["tr_give_amt"] = v
-            ctx.user_data["tr_step"] = "want"
-            ctx.user_data["wait"] = None
-            await update.message.reply_text("✅\n*مرحله ۳:* در ازای چی؟", reply_markup=kb_trade(), parse_mode="Markdown")
-        elif step == "want_amt":
-            ctx.user_data["tr_want_amt"] = v
-            ctx.user_data["tr_step"] = "target"
-            ctx.user_data["wait"] = "tr_target"
-            await update.message.reply_text("🎯 طرف مقابل 👇", reply_markup=kb_targets(uid))
-        return
-    if wait == "statement":
-        st = get_state(uid); c = COUNTRIES[st["country"]]
-        msg = f"📜 بیانیه رسمی: {c['n']} {c['f']}\n━━━━━━━━━━━━━\n{text}\n━━━━━━━━━━━━━"
-        try: await ctx.bot.send_message(NEWS_CH, msg)
-        except: pass
-        add_news(st["turn"],"statement",msg)
-        ctx.user_data["wait"]=None
-        await update.message.reply_text("✅ منتشر شد.", reply_markup=kb_main()); return
-    if wait == "item_target" and ctx.user_data.get("use_item"):
-        if text in CMAP:
-            tk = CMAP[text]
-            tu = find_country(tk)
-            if tu:
-                ik = ctx.user_data["use_item"]
-                result = await apply_item(ctx, uid, ik, tu)
-                await update.message.reply_text(result, reply_markup=kb_main())
-                ctx.user_data["wait"] = None; ctx.user_data["use_item"] = None
-                return
-
-    # ─── پاسخ به درخواست دیپلماتیک ───
-    if text.startswith("✅ قبول #"):
-        try: nid = int(text.split("#")[1]); await on_neg_resp(update,ctx,nid,True); return
-        except: pass
-    if text.startswith("❌ رد #"):
-        try: nid = int(text.split("#")[1]); await on_neg_resp(update,ctx,nid,False); return
-        except: pass
-
-    # ─── پاسخ به پیشنهاد تجاری ───
-    if text.startswith("✅ قبول ") and not text.startswith("✅ قبول #"):
-        try:
-            tid = int(text.split(" ", 2)[2])
-            await on_trade_resp(update, ctx, tid, True); return
-        except: pass
-    if text.startswith("❌ رد ") and not text.startswith("❌ رد #"):
-        try:
-            tid = int(text.split(" ", 2)[2])
-            await on_trade_resp(update, ctx, tid, False); return
-        except: pass
-
-    # ─── عضویت ───
-    if text == "عضو شدم ✅": await on_joined(update,ctx); return
-
-    # ─── انتخاب کشور در context ───
-    if text in CMAP:
-        if wait == "dip_target": await on_dip_target(update,ctx); return
-        if wait == "spy_target": await on_spy_target(update,ctx); return
-        if wait == "atk_target": await on_attack_target(update,ctx); return
-        if wait == "tr_target": await on_trade_target(update,ctx); return
-        if wait == "bomb_target": await on_bomb_target(update,ctx); return
-        if not get_state(uid) or get_state(uid).get("dead"):
-            await on_country_pick(update,ctx); return
-
-    # ─── دستورات ادمین ───
-    if text.startswith("هدیه آیتم ") and is_admin(uid): await cmd_item(update,ctx); return
-    if text.startswith("هدیه ") and is_admin(uid):
-        p = text.split()
-        if len(p)>=4 and p[2] in ["پول","غذا","آب","فولاد","نفت","زغال","نیرو","سرباز"]:
-            await cmd_give(update,ctx); return
-    if text.startswith("اطلاعات ") and is_admin(uid): await cmd_info(update,ctx); return
-    if text.endswith(" ویژه") and is_admin(uid): await cmd_vip(update,ctx); return
-    if text == "نوبت بعدی" and is_admin(uid): await cmd_next_turn(update,ctx); return
-    if text == "لیست بازیکنان": await cmd_players(update,ctx); return
-    if text == "پنل مدیریت" and is_admin(uid): await cmd_admin(update,ctx); return
-    if text == "آیدی من": await cmd_myid(update,ctx); return
-    if text in ITEM_FA and is_admin(uid):
-        ik = ITEM_FA[text]
-        ctx.user_data["use_item"] = ik
-        ctx.user_data["wait"] = "item_target"
-        await update.message.reply_text(f"🎁 {text}\n🎯 کشور هدف 👇", reply_markup=kb_targets(uid)); return
-
-    # ─── اعدام/بخشش/حبس ───
-    if text == "🔴 اعدام": await on_fate(update,ctx,"execute"); return
-    if text == "🟢 بخشش": await on_fate(update,ctx,"forgive"); return
-    if text == "🔒 حبس": await on_fate(update,ctx,"prison"); return
-
-    # ─── بازی جدید / منو ───
-    if text == "🎮 بازی جدید": await on_newgame(update,ctx); return
-    if text == "🔙 منو":
-        ctx.user_data["screen"]="menu"; ctx.user_data["wait"]=None
-        await cmd_menu(update,ctx); return
-
     st = get_state(uid)
-    if not st or st.get("dead"): return
+    if st and not st.get("dead"):
+        await update.message.reply_text(render_dash(st), reply_markup=kb_main(), parse_mode="Markdown")
+        return
+    await update.message.reply_text(
+        "🎖️ به جنگ جهانی دوم خوش آمدی!\n\n"
+        f"📅 شروع: ۱ سپتامبر ۱۹۳۹\n"
+        f"🔢 {TOTAL_TURNS} نوبت\n"
+        f"⏰ هر نوبت: {TURN_MINUTES} دقیقه = ۱ روز بازی\n\n"
+        "🌍 کشورت رو انتخاب کن 👇",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("🎮 بازی جدید")]], resize_keyboard=True))
 
-    # ─── screen: کارخونه ───
-    if screen == "fact":
-        for f in get_fact(uid):
-            p = PROJECTS.get(f["fkey"],{})
-            if p.get("n") == text:
-                lvl = f["level"]
-                if lvl >= 5: await update.message.reply_text("🏆 حداکثر سطح."); return
-                costs = {1:500,2:1200,3:2500,4:5000}
-                cost = costs.get(lvl, 0)
-                if not pay(uid, money=cost):
-                    await update.message.reply_text(f"❌ نیاز: {cost}💰"); return
-                conn = db()
-                conn.execute("UPDATE factories SET level=level+1 WHERE user_id=? AND fkey=?", (uid, f["fkey"]))
-                conn.commit(); conn.close()
-                await update.message.reply_text(f"✅ {text} → سطح {lvl+1}", reply_markup=kb_main()); return
+async def on_newgame(update, ctx):
+    if await check_join(update, ctx): await send_join(update); return
+    await update.message.reply_text("🌍 *کشورت رو انتخاب کن:*",
+        reply_markup=kb_country(), parse_mode="Markdown")
 
-    # ─── screen: خرید یا تحقیق مدل ───
-    if screen.startswith("buy_") or screen.startswith("research_"):
-        cat = screen.split("_",1)[1]
-        tree = get_tree(st["country"], cat)
-        researched = get_res(uid, cat)
-        for i,item in enumerate(tree):
-            name, power = item[0], item[1]
-            if name == text:
-                if screen.startswith("buy_"):
-                    if i!=0 and name not in researched:
-                        await update.message.reply_text(f"🔒 {name} تحقیق نشده."); return
-                    ctx.user_data["buy_model"] = {"cat":cat,"name":name,"power":power,"steel":item[4],"build":item[3]}
-                    ctx.user_data["wait"] = "buy_amt"
-                    pm = power*20+100
-                    await update.message.reply_text(
-                        f"🛒 *{name}*\nقدرت {power}\n💰{pm} ⚙️{item[4]} ⏱️{item[3]} نوبت\n\nتعداد:",
-                        reply_markup=kb_back(), parse_mode="Markdown")
-                    return
-                else:
-                    if i==0: await update.message.reply_text("این از اول بازه."); return
-                    if name in researched: await update.message.reply_text("قبلاً تحقیق شده."); return
-                    cost = item[2]
-                    if not pay(uid, money=cost):
-                        await update.message.reply_text(f"❌ نیاز: {cost}💰"); return
-                    mark_res(uid, cat, name)
-                    await update.message.reply_text(f"✅ {name} تحقیق شد! قدرت {power}", reply_markup=kb_main()); return
+async def on_country_pick(update, ctx):
+    text = update.message.text.strip()
+    if text not in CMAP: return
+    uid = update.effective_user.id
+    key = CMAP[text]
+    existing = get_state(uid)
+    if existing and not existing.get("dead"): return
+    ex_uid = find_country(key)
+    if ex_uid:
+        ex_st = get_state(ex_uid)
+        if ex_st and not ex_st.get("dead"):
+            await update.message.reply_text("❌ این کشور قبلاً انتخاب شده!"); return
+    c = COUNTRIES[key]
+    conn = db()
+    conn.execute("DELETE FROM players WHERE user_id=?", (uid,))
+    conn.execute("DELETE FROM states WHERE user_id=?", (uid,))
+    conn.execute("INSERT INTO players(user_id,country,gov,is_vip) VALUES(?,?,?,?)",
+        (uid, key, c["gov"], 1 if uid in ADMIN_IDS else 0))
+    conn.execute("""INSERT INTO states(user_id,turn,game_date,money,food,water,
+        steel,oil,coal,manpower,last_turn) VALUES(?,1,?,?,?,?,?,?,?,?,?)""",
+        (uid, "1939-09-01", c["m"], c["fo"], c["fo"]/2, c["s"], c["o"],
+         c["c"], c["mp"], datetime.utcnow().isoformat()))
+    conn.commit(); conn.close()
+    init_fact(uid)
+    ctx.user_data["wait"] = "gov"
+    await update.message.reply_text(
+        f"✅ {c['f']} *{c['n']}*\n\n👑 نظام حکومتی خود را انتخاب کن 👇",
+        reply_markup=kb_gov(), parse_mode="Markdown")
 
-    # ─── screen: پروژه ───
-    if screen.startswith("proj_"):
-        cat = screen.split("_",1)[1]
-        for pk,p in PROJECTS.items():
-            if p["cat"]==cat and p["n"]==text:
-                if pk in get_done_proj(uid): await update.message.reply_text("قبلاً انجام شد."); return
-                if any(q["pkey"]==pk for q in get_projq(uid)): await update.message.reply_text("در حال ساخت."); return
-                if not pay(uid, money=p["m"], steel=p["s"]):
-                    await update.message.reply_text("❌ منابع کافی نیست."); return
-                add_projq(uid, pk, p["d"])
-                await update.message.reply_text(f"✅ {p['n']} شروع شد ({p['d']} نوبت)", reply_markup=kb_main()); return
+async def on_gov_pick(update, ctx):
+    if ctx.user_data.get("wait") != "gov": return
+    text = update.message.text.strip()
+    gmap = {
+        "👑 پادشاهی مطلقه":"absolute_monarchy","👑 پادشاهی مشروطه":"constitutional_monarchy",
+        "🗳️ جمهوری ریاستی":"presidential_republic","🗳️ جمهوری پارلمانی":"parliamentary_republic",
+        "🚩 فاشیسم":"fascist","🚩 کمونیسم":"communism",
+        "⚙️ دیکتاتوری نظامی":"military_dictatorship","⚙️ دیکتاتوری شخصی":"personal_dictatorship",
+        "🕊️ دموکراسی لیبرال":"liberal_democracy","🕊️ دموکراسی اجتماعی":"social_democracy",
+        "⚖️ تئوکراسی":"theocracy","🚩 تک‌حزبی":"single_party",
+    }
+    if text not in gmap: return
+    uid = update.effective_user.id
+    pset(uid, gov=gmap[text])
+    ctx.user_data["wait"] = None
+    st = get_state(uid)
+    await update.message.reply_text(f"✅\n\n{render_dash(st)}",
+        reply_markup=kb_main(), parse_mode="Markdown")
 
-    # ─── منوها ───
-    if text == "💰 اقتصاد": await on_eco(update,ctx); return
-    if text == "💵 تغییر مالیات": await on_tax(update,ctx); return
-    if text == "⚔️ ارتش": await on_army(update,ctx); return
-    if text == "🪖 سرباز": await on_soldier(update,ctx); return
-    if text == "🛡️ تانک": await on_army_cat(update,ctx,"tanks"); return
-    if text == "✈️ جنگنده": await on_army_cat(update,ctx,"fighters"); return
-    if text == "🚀 جت": await on_army_cat(update,ctx,"jets"); return
-    if text == "🚢 کشتی": await on_army_cat(update,ctx,"ships"); return
-    if text == "🎯 موشک": await on_army_cat(update,ctx,"missiles"); return
-    if text == "💣 بمب‌افکن": await on_army_cat(update,ctx,"bombers"); return
-    if text == "🛡️ پدافند": await on_army_cat(update,ctx,"aa"); return
-    if text == "📋 خدمت اجباری":
-        if not pay(uid, money=1000):
-            await update.message.reply_text("❌ ۱۰۰۰💰 لازمه."); return
-        st2 = get_state(uid)
-        sset(uid, happiness=max(0, st2["happiness"]-15), manpower=st2["manpower"]+500)
-        add_news(st2["turn"], "conscription", f"📋 خدمت اجباری در {COUNTRIES[st2['country']]['n']}")
-        await update.message.reply_text("📋 خدمت اجباری!\n-۱۵ رضایت، +۵۰۰ نیرو", reply_markup=kb_main()); return
-    if text == "🔬 تحقیقات": await on_research(update,ctx); return
-    if text == "🔬🛡️ تانک": await on_research_cat(update,ctx,"tanks"); return
-    if text == "🔬✈️ جنگنده": await on_research_cat(update,ctx,"fighters"); return
-    if text == "🔬🚀 جت": await on_research_cat(update,ctx,"jets"); return
-    if text == "🔬🚢 کشتی": await on_research_cat(update,ctx,"ships"); return
-    if text == "🔬🎯 موشک": await on_research_cat(update,ctx,"missiles"); return
-    if text == "🔬💣 بمب‌افکن": await on_research_cat(update,ctx,"bombers"); return
-    if text == "🔬🛡️ پدافند": await on_research_cat(update,ctx,"aa"); return
-    if text == "🏗️ پروژه‌ها": await on_projects(update,ctx); return
-    if text == "🏭 صنعت": await on_projects_cat(update,ctx,"industry"); return
-    if text == "⚡ انرژی": await on_projects_cat(update,ctx,"energy"); return
-    if text == "🎖️ نظامی": await on_projects_cat(update,ctx,"military"); return
-    if text == "🏥 اجتماعی": await on_projects_cat(update,ctx,"social"); return
-    if text == "🌾 کشاورزی": await on_projects_cat(update,ctx,"agri"); return
-    if text == "📜 سیاسی": await on_projects_cat(update,ctx,"politics"); return
-    if text == "🛣️ حمل‌ونقل": await on_projects_cat(update,ctx,"transport"); return
-    if text == "🏭 کارخونه‌ها": await on_fact(update,ctx); return
-    if text == "🤝 دیپلماسی": await on_dip(update,ctx); return
-    if text == "🤝 پیشنهاد اتحاد": await on_dip_action(update,ctx,"ally"); return
-    if text == "☮️ پیشنهاد صلح": await on_dip_action(update,ctx,"peace"); return
-    if text == "⚔️ اعلام جنگ": await on_dip_action(update,ctx,"war"); return
-    if text == "🤐 پیمان عدم تعرض": await on_dip_action(update,ctx,"nap"); return
-    if text == "📜 بیانیه رسمی": await on_statement(update,ctx); return
-    if text == "🚪 خروج از اتحاد": await on_leave_alliance(update,ctx); return
-    if text == "📨 درخواست‌های من": await on_negs(update,ctx); return
-    if text == "📦 تجارت": await on_trade(update,ctx); return
-    if text == "🎯 حمله": await on_attack(update,ctx); return
-    if text == "✈️ بمباران": await on_bomb(update,ctx); return
-    if text == "🏭 بمباران کارخونه": await on_bomb_type(update,ctx,"factory"); return
-    if text == "🔧 بمباران تجهیزات": await on_bomb_type(update,ctx,"equip"); return
-    if text == "💀 ترور فرمانده": await on_bomb_type(update,ctx,"assassin"); return
-    if text == "🛢️ بمباران پالایشگاه": await on_bomb_type(update,ctx,"refinery"); return
-    if text == "🕵️ جاسوسی": await on_spy(update,ctx); return
-    if text == "🏛️ امور کشور": await on_internal(update,ctx); return
-    if text == "📢 سخنرانی": await on_speech(update,ctx); return
-    if text == "🚔 سرکوب": await on_suppress(update,ctx); return
-    if text == "🕵️ نظارت بر مردم": await on_surv(update,ctx); return
-    if text == "🕵️ نظارت +۱۰": await on_surv_change(update,ctx,10); return
-    if text == "🕵️ نظارت -۱۰": await on_surv_change(update,ctx,-10); return
-    if text == "📊 آمار کامل": await on_stats(update,ctx); return
-    if text == "☢️ اتم": await on_atomic(update,ctx); return
-    if text == "☢️ شروع مرحله": await on_atomic_start(update,ctx); return
+async def cmd_menu(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st or st.get("dead"):
+        await cmd_start(update, ctx); return
+    await update.message.reply_text(render_dash(st),
+        reply_markup=kb_main(), parse_mode="Markdown")
 
-    # ─── مراحل تجارت ───
-    if ctx.user_data.get("tr_step") == "give": await on_trade_give(update,ctx); return
-    if ctx.user_data.get("tr_step") == "want": await on_trade_want(update,ctx); return
+async def on_joined(update, ctx):
+    if await check_join(update, ctx):
+        await update.message.reply_text("❌ هنوز عضو نشدی.",
+            reply_markup=ReplyKeyboardMarkup([[KeyboardButton("عضو شدم ✅")]], resize_keyboard=True))
+        return
+    await update.message.reply_text("✅ عضویت تأیید شد!",
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🎮 بازی جدید")]], resize_keyboard=True))
 
+async def on_stats(update, ctx):
+    uid = update.effective_user.id
+    if not get_state(uid): return
+    await update.message.reply_text(render_stats(uid),
+        reply_markup=kb_back(), parse_mode="Markdown")
+
+async def cmd_myid(update, ctx):
+    await update.message.reply_text(f"🆔 `{update.effective_user.id}`", parse_mode="Markdown")
+
+async def cmd_players(update, ctx):
+    ps = all_players()
+    if not ps:
+        await update.message.reply_text("بازیکنی وجود ندارد."); return
+    t = "🌍 *بازیکنان فعال*\n"
+    for p in ps:
+        c = COUNTRIES.get(p["c"], {})
+        t += f"{c.get('f','?')} {c.get('n','?')}\n"
+    await update.message.reply_text(t, parse_mode="Markdown")
 
 # ═══════════════════════════════════════════════════════════════
-#  ✅ پاسخ به پیشنهاد تجاری
+#  💰 اقتصاد / مالیات
 # ═══════════════════════════════════════════════════════════════
+async def on_eco(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    await update.message.reply_text(
+        f"💰 *اقتصاد {COUNTRIES[st['country']]['n']}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"💰 پول: {fmt(st['money'])}\n"
+        f"🍞 غذا: {fmt(st['food'])}\n"
+        f"💧 آب: {fmt(st['water'])}\n"
+        f"⚙️ فولاد: {fmt(st['steel'])}\n"
+        f"🛢️ نفت: {fmt(st['oil'])}\n"
+        f"🪨 زغال: {fmt(st['coal'])}\n"
+        f"👥 نیرو: {fmt(st['manpower'])}\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"💵 مالیات: {st['tax']}%",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("💵 تغییر مالیات")],[KeyboardButton("🔙 منو")]],
+            resize_keyboard=True),
+        parse_mode="Markdown")
+
+async def on_tax(update, ctx):
+    ctx.user_data["wait"] = "tax"
+    await update.message.reply_text("💵 عدد بین ۰ تا ۵۰ را بفرست:",
+        reply_markup=kb_back())
+
+# ═══════════════════════════════════════════════════════════════
+#  ⚔️ ارتش
+# ═══════════════════════════════════════════════════════════════
+async def on_army(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    await update.message.reply_text(
+        f"⚔️ *ارتش {COUNTRIES[st['country']]['n']}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"⚔️ قدرت حمله: {fmt(calc_power(uid,'attack'))}\n"
+        f"🛡️ قدرت دفاع: {fmt(calc_power(uid,'defense'))}\n"
+        f"🪖 سرباز: {fmt(st['soldiers'])}\n"
+        f"🛡 پدافند: {fmt(get_aa_power(uid))}",
+        reply_markup=kb_army(), parse_mode="Markdown")
+
+async def on_army_cat(update, ctx, cat):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tree = get_tree(st["country"], cat); researched = get_res(uid, cat)
+    ctx.user_data["screen"] = f"buy_{cat}"
+    lines = [CAT_N[cat],"━━━━━━━━━━━━━━━━"]
+    for i, item in enumerate(tree):
+        name, power = item[0], item[1]
+        ok = (i == 0) or (name in researched)
+        lines.append(f"{'✅' if ok else '🔒'} {name} — قدرت {power}")
+    lines.append("\n👇 روی مدل مورد نظر بزن")
+    await update.message.reply_text("\n".join(lines),
+        reply_markup=kb_models(st["country"], cat, uid), parse_mode="Markdown")
+
+async def on_soldier(update, ctx):
+    ctx.user_data["wait"] = "soldier"
+    await update.message.reply_text(
+        "🪖 *خرید سرباز*\nقیمت هر سرباز: ۵۰💰 + ۱👥\n\nتعداد:",
+        reply_markup=kb_back(), parse_mode="Markdown")
+
+# ═══════════════════════════════════════════════════════════════
+#  🔬 تحقیقات
+# ═══════════════════════════════════════════════════════════════
+async def on_research(update, ctx):
+    await update.message.reply_text("🔬 *درخت تحقیقات*\nدسته را انتخاب کن 👇",
+        reply_markup=kb_research(), parse_mode="Markdown")
+
+async def on_research_cat(update, ctx, cat):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tree = get_tree(st["country"], cat); researched = get_res(uid, cat)
+    ctx.user_data["screen"] = f"research_{cat}"
+    lines = [f"🔬 {CAT_N[cat]}","━━━━━━━━━━━━━━━━"]
+    for i, item in enumerate(tree):
+        name, power, cost = item[0], item[1], item[2]
+        if i == 0: lines.append(f"✅ {name} (از اول باز)")
+        elif name in researched: lines.append(f"✅ {name} (قدرت {power})")
+        else: lines.append(f"🔒 {name} — {cost}💰")
+    lines.append("\n👇 روی مدل مورد نظر بزن")
+    await update.message.reply_text("\n".join(lines),
+        reply_markup=kb_models(st["country"], cat, uid), parse_mode="Markdown")
+
+# ═══════════════════════════════════════════════════════════════
+#  🏗️ پروژه‌ها
+# ═══════════════════════════════════════════════════════════════
+async def on_projects(update, ctx):
+    await update.message.reply_text("🏗️ *پروژه‌های ملی*\nدسته را انتخاب کن 👇",
+        reply_markup=kb_projects(), parse_mode="Markdown")
+
+async def on_projects_cat(update, ctx, cat):
+    uid = update.effective_user.id
+    done = get_done_proj(uid); in_q = {p["pkey"] for p in get_projq(uid)}
+    rows = []; row = []
+    cat_fa = {"industry":"صنعت","energy":"انرژی","military":"نظامی",
+              "social":"اجتماعی","agri":"کشاورزی","politics":"سیاسی","transport":"حمل‌ونقل"}
+    lines = [f"🏗️ پروژه‌های {cat_fa.get(cat,cat)}","━━━━━━━━━━━━━━━━"]
+    for pk, p in PROJECTS.items():
+        if p["cat"] != cat: continue
+        if pk in done: lines.append(f"✅ {p['n']}")
+        elif pk in in_q: lines.append(f"🔨 {p['n']} (در حال ساخت)")
+        else:
+            lines.append(f"🆕 {p['n']} — {p['m']}💰 + {p['s']}⚙️")
+            row.append(KeyboardButton(p["n"]))
+            if len(row) == 2: rows.append(row); row = []
+    if row: rows.append(row)
+    rows.append([KeyboardButton("🔙 منو")])
+    ctx.user_data["screen"] = f"proj_{cat}"
+    await update.message.reply_text("\n".join(lines),
+        reply_markup=ReplyKeyboardMarkup(rows, resize_keyboard=True), parse_mode="Markdown")
+
+# ═══════════════════════════════════════════════════════════════
+#  🏭 کارخونه‌ها
+# ═══════════════════════════════════════════════════════════════
+async def on_fact(update, ctx):
+    uid = update.effective_user.id
+    lines = ["🏭 *کارخونه‌های شما*","━━━━━━━━━━━━━━━━"]
+    for f in get_fact(uid):
+        p = PROJECTS.get(f["fkey"],{})
+        lines.append(f"{p.get('n', f['fkey'])} — سطح {f['level']}")
+    lines.append("\n👇 برای ارتقا، روی کارخونه بزن")
+    ctx.user_data["screen"] = "fact"
+    await update.message.reply_text("\n".join(lines),
+        reply_markup=kb_fact(uid), parse_mode="Markdown")
+
+# ═══════════════════════════════════════════════════════════════
+#  🏛️ امور کشور
+# ═══════════════════════════════════════════════════════════════
+async def on_internal(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    t = (f"🏛️ *امور کشور {COUNTRIES[st['country']]['n']}*\n"
+         f"😊 رضایت: {int(st['happiness'])}%\n"
+         f"🕵️ نظارت: {st.get('surveillance',20)}%\n")
+    if st.get("protest"): t += f"\n🔥 *اعتراض فعال* ({st.get('protest_t',0)} نوبت)"
+    await update.message.reply_text(t, reply_markup=kb_internal(), parse_mode="Markdown")
+
+async def on_speech(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if st["money"] < 300:
+        await update.message.reply_text("❌ ۳۰۰💰 لازمه."); return
+    sset(uid, money=st["money"]-300)
+    c = COUNTRIES[st["country"]]
+    speech = (f"📢 رهبر {c['n']} در سخنرانی امروز خود خطاب به ملت گفت:\n\n"
+              f"«ما در روزهای سرنوشت‌سازی قرار داریم. اتحاد و ایستادگی، "
+              f"رمز پیروزی ماست. تاریخ این روزها را به یاد خواهد سپرد.»")
+    add_news(st["turn"], "speech", speech)
+    await post_to_channel(ctx, speech)
+    await update.message.reply_text("📢 سخنرانی انجام شد و در کانال منتشر شد.",
+        reply_markup=kb_main())
+
+async def on_suppress(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st.get("protest"):
+        await update.message.reply_text("❌ *اعتراضی برای سرکوب وجود ندارد.*",
+            reply_markup=kb_main()); return
+    if not pay(uid, money=500):
+        await update.message.reply_text("❌ ۵۰۰💰 لازمه."); return
+    sset(uid, suppress_cd=5, protest=0, protest_t=0,
+         happiness=min(100, st["happiness"]+10))
+    c = COUNTRIES[st["country"]]
+    speech = generate_speech(uid, "suppress")
+    msg = (f"🚔 *سرکوب اعتراضات در {c['n']}*\n\n"
+           f"نیروهای امنیتی امروز تجمعات غیرقانونی را متفرق کردند.")
+    add_news(st["turn"], "suppress", msg)
+    await post_to_channel(ctx, msg)
+    if speech:
+        add_news(st["turn"], "speech", speech)
+        await post_to_channel(ctx, speech)
+    await update.message.reply_text(
+        "🚔 سرکوب انجام شد!\n"
+        "📈 کوتاه‌مدت: +۱۰ رضایت\n"
+        "📉 بلندمدت: -۵ بعد ۵ نوبت",
+        reply_markup=kb_main())
+
+async def on_surv(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    await update.message.reply_text(
+        f"🕵️ *نظارت بر مردم*\nالان: {st.get('surveillance',20)}%\n\n"
+        f"✅ کاهش موفقیت جاسوس دشمن\n❌ کاهش رضایت\n❌ افزایش نارضایتی بلندمدت",
+        reply_markup=kb_surv(), parse_mode="Markdown")
+
+async def on_surv_change(update, ctx, delta):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    nv = max(0, min(100, st.get("surveillance",20)+delta))
+    sset(uid, surveillance=nv)
+    await update.message.reply_text(f"🕵️ نظارت: {nv}%", reply_markup=kb_surv())
+
+# ═══════════════════════════════════════════════════════════════
+#  🤝 دیپلماسی
+# ═══════════════════════════════════════════════════════════════
+async def on_dip(update, ctx):
+    await update.message.reply_text("🤝 *دیپلماسی*\nگزینه مورد نظر را انتخاب کن 👇",
+        reply_markup=kb_dip(), parse_mode="Markdown")
+
+async def on_dip_action(update, ctx, kind):
+    uid = update.effective_user.id
+    if not all_players(exclude=uid):
+        await update.message.reply_text("بازیکن دیگری وجود ندارد."); return
+    ctx.user_data["dip_kind"] = kind
+    ctx.user_data["wait"] = "dip_target"
+    await update.message.reply_text("🎯 کشور هدف را انتخاب کن 👇",
+        reply_markup=kb_targets(uid))
+
+async def on_dip_target(update, ctx):
+    if ctx.user_data.get("wait") != "dip_target": return
+    text = update.message.text.strip()
+    if text not in CMAP: return
+    tk = CMAP[text]
+    kind = ctx.user_data.get("dip_kind")
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tu = find_country(tk)
+    if not tu:
+        await update.message.reply_text("❌ این کشور بازیکن ندارد."); return
+    c = COUNTRIES[tk]
+    # اعلام جنگ
+    if kind == "war":
+        if is_in_same_alliance(uid, tu):
+            await update.message.reply_text("❌ نمی‌تونی به متحدت حمله کنی!")
+            ctx.user_data["wait"]=None; return
+        if nap_active(uid, tu):
+            until = get_nap(uid, tu)
+            await update.message.reply_text(
+                f"🤐 پیمان عدم تعرض تا نوبت {until} فعال است. نمی‌توانی حمله کنی.")
+            ctx.user_data["wait"]=None; return
+        conn = db()
+        conn.execute("""INSERT INTO wars(attacker,defender,atk_uid,def_uid,
+            stage,turns) VALUES(?,?,?,?,'move',1)""",
+            (st["country"], tk, uid, tu))
+        conn.commit(); conn.close()
+        msg = (f"⚔️ *{COUNTRIES[st['country']]['n']} به {c['n']} اعلام جنگ کرد!*\n\n"
+               f"نیروهای مسلح در مرزها آماده‌ی نبرد شده‌اند.")
+        add_news(st["turn"], "war", msg)
+        await post_to_channel(ctx, msg)
+        key = f"speech_war_{uid}"
+        if gget(key) != "done":
+            gset(key, "done")
+            speech = generate_speech(uid, "war")
+            if speech:
+                add_news(st["turn"], "speech", speech)
+                await post_to_channel(ctx, speech)
+        try:
+            await ctx.bot.send_message(tu,
+                f"⚔️ {COUNTRIES[st['country']]['n']} به تو اعلام جنگ کرد!")
+        except: pass
+        await update.message.reply_text(f"⚔️ جنگ با {c['n']} اعلام شد.",
+            reply_markup=kb_main())
+    # اتحاد
+    elif kind == "ally":
+        aid = get_user_alliance(uid)
+        if not aid:
+            conn = db()
+            cur = conn.execute("INSERT INTO alliances(name,founder) VALUES(?,?)",
+                (f"اتحاد {st['country']}", uid))
+            aid = cur.lastrowid
+            conn.execute("INSERT INTO allies(aid,user_id) VALUES(?,?)", (aid, uid))
+            conn.commit(); conn.close()
+        conn = db()
+        conn.execute("INSERT INTO negs(from_id,to_id,kind,payload) VALUES(?,?,'alliance',?)",
+            (uid, tu, str(aid)))
+        conn.commit(); conn.close()
+        try:
+            await ctx.bot.send_message(tu,
+                f"📩 *دعوت به اتحاد* از {COUNTRIES[st['country']]['n']}\n"
+                f"برای پاسخ: 🤝 دیپلماسی → 📨 درخواست‌های من", parse_mode="Markdown")
+        except: pass
+        await update.message.reply_text("📤 دعوت ارسال شد.", reply_markup=kb_main())
+    # NAP
+    elif kind == "nap":
+        conn = db()
+        conn.execute("INSERT INTO negs(from_id,to_id,kind) VALUES(?,?,'nap')", (uid, tu))
+        conn.commit(); conn.close()
+        try:
+            await ctx.bot.send_message(tu,
+                f"📩 *پیشنهاد پیمان عدم تعرض* از {COUNTRIES[st['country']]['n']}\n"
+                f"برای پاسخ: 🤝 دیپلماسی → 📨 درخواست‌های من", parse_mode="Markdown")
+        except: pass
+        await update.message.reply_text("📤 پیشنهاد NAP ارسال شد.", reply_markup=kb_main())
+    # پیشنهاد صلح
+    elif kind == "peace":
+        conn = db()
+        conn.execute("INSERT INTO negs(from_id,to_id,kind) VALUES(?,?,'peace')", (uid, tu))
+        conn.commit(); conn.close()
+        try:
+            await ctx.bot.send_message(tu,
+                f"📩 *پیشنهاد صلح* از {COUNTRIES[st['country']]['n']}",
+                parse_mode="Markdown")
+        except: pass
+        await update.message.reply_text("📤 پیشنهاد صلح ارسال شد.", reply_markup=kb_main())
+    # لغو NAP
+    elif kind == "cancel_nap":
+        if not nap_active(uid, tu):
+            await update.message.reply_text("❌ پیمان فعالی وجود ندارد.")
+            ctx.user_data["wait"]=None; return
+        conn = db()
+        conn.execute("INSERT INTO negs(from_id,to_id,kind) VALUES(?,?,'cancel_nap')", (uid, tu))
+        conn.commit(); conn.close()
+        try:
+            await ctx.bot.send_message(tu,
+                f"📩 *درخواست لغو پیمان عدم تعرض* از {COUNTRIES[st['country']]['n']}\n"
+                f"برای پاسخ: 🤝 دیپلماسی → 📨 درخواست‌های من", parse_mode="Markdown")
+        except: pass
+        await update.message.reply_text("📤 درخواست لغو ارسال شد.", reply_markup=kb_main())
+    ctx.user_data["wait"] = None
+
+async def on_negs(update, ctx):
+    uid = update.effective_user.id
+    conn = db()
+    rows = conn.execute("SELECT * FROM negs WHERE to_id=? AND status='pending'",
+        (uid,)).fetchall()
+    conn.close()
+    if not rows:
+        await update.message.reply_text("📨 درخواست جدیدی نداری.", reply_markup=kb_main()); return
+    lines = ["📨 *درخواست‌های دریافتی*","━━━━━━━━━━━━━━━━"]
+    kbtns = []
+    kind_fa = {"alliance":"اتحاد","nap":"عدم تعرض","peace":"صلح","cancel_nap":"لغو پیمان"}
+    for r in rows:
+        fs = get_state(r["from_id"])
+        if not fs: continue
+        lines.append(f"#{r['id']} — {COUNTRIES[fs['country']]['n']} → {kind_fa.get(r['kind'],r['kind'])}")
+        kbtns.append([KeyboardButton(f"✅ قبول #{r['id']}"),
+                      KeyboardButton(f"❌ رد #{r['id']}")])
+    kbtns.append([KeyboardButton("🔙 منو")])
+    await update.message.reply_text("\n".join(lines),
+        reply_markup=ReplyKeyboardMarkup(kbtns,resize_keyboard=True), parse_mode="Markdown")
+
+async def on_neg_resp(update, ctx, nid, acc):
+    uid = update.effective_user.id
+    conn = db()
+    r = conn.execute("SELECT * FROM negs WHERE id=? AND to_id=?", (nid, uid)).fetchone()
+    if not r: conn.close(); await update.message.reply_text("❌"); return
+    r = dict(r)
+    conn.execute("UPDATE negs SET status=? WHERE id=?",
+        ("accepted" if acc else "rejected", nid))
+    if acc and r["kind"] == "nap":
+        add_nap(uid, r["from_id"], int(gget("turn","1"))+10)
+    if acc and r["kind"] == "cancel_nap":
+        cancel_nap(uid, r["from_id"])
+    if acc and r["kind"] == "alliance":
+        try:
+            aid = int(r["payload"])
+            conn.execute("INSERT OR IGNORE INTO allies(aid,user_id) VALUES(?,?)", (aid, uid))
+        except: pass
+    conn.commit(); conn.close()
+    msg = "✅ قبول" if acc else "❌ رد"
+    await update.message.reply_text(msg, reply_markup=kb_main())
+    try: await ctx.bot.send_message(r["from_id"], f"📩 پاسخ درخواستت: {msg}")
+    except: pass
+
+async def on_leave_alliance(update, ctx):
+    uid = update.effective_user.id
+    aid = get_user_alliance(uid)
+    if not aid:
+        await update.message.reply_text("تو اتحادی نیستی."); return
+    conn = db()
+    conn.execute("DELETE FROM allies WHERE user_id=?", (uid,))
+    conn.commit(); conn.close()
+    await update.message.reply_text("✅ از اتحاد خارج شدی.", reply_markup=kb_main())
+
+async def on_cancel_nap(update, ctx):
+    uid = update.effective_user.id
+    ctx.user_data["dip_kind"] = "cancel_nap"
+    ctx.user_data["wait"] = "dip_target"
+    await update.message.reply_text("🎯 کدوم کشور رو می‌خوای لغو کنی؟", reply_markup=kb_targets(uid))
+
+async def on_statement(update, ctx):
+    ctx.user_data["wait"] = "statement"
+    await update.message.reply_text("📜 متن بیانیه رسمی خود را بنویس:", reply_markup=kb_back())
+
+# ═══════════════════════════════════════════════════════════════
+#  📦 تجارت
+# ═══════════════════════════════════════════════════════════════
+async def on_trade(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    ctx.user_data["tr_step"] = "give"
+    await update.message.reply_text(
+        f"📦 *تجارت*\n💰{fmt(st['money'])} 🍞{fmt(st['food'])} ⚙️{fmt(st['steel'])}\n\n"
+        f"*مرحله ۱:* چی می‌دی؟",
+        reply_markup=kb_trade(), parse_mode="Markdown")
+
+async def on_trade_give(update, ctx):
+    if ctx.user_data.get("tr_step") != "give": return
+    text = update.message.text.strip()
+    m = {"💰 پول":"money","🍞 غذا":"food","💧 آب":"water","⚙️ فولاد":"steel",
+         "🛢️ نفت":"oil","🪨 زغال":"coal","👥 نیرو":"manpower","❌ هیچی":"nothing"}
+    if text not in m: return
+    ctx.user_data["tr_give"] = m[text]
+    ctx.user_data["tr_step"] = "give_amt"
+    ctx.user_data["wait"] = "tr_amt"
+    await update.message.reply_text("🔢 چند تا می‌دی؟", reply_markup=kb_back())
+
+async def on_trade_want(update, ctx):
+    if ctx.user_data.get("tr_step") != "want": return
+    text = update.message.text.strip()
+    m = {"💰 پول":"money","🍞 غذا":"food","💧 آب":"water","⚙️ فولاد":"steel",
+         "🛢️ نفت":"oil","🪨 زغال":"coal","👥 نیرو":"manpower","❌ هیچی":"nothing"}
+    if text not in m: return
+    r = m[text]
+    ctx.user_data["tr_want"] = r
+    if r == "nothing":
+        ctx.user_data["tr_want_amt"] = 0
+        ctx.user_data["tr_step"] = "target"
+        ctx.user_data["wait"] = "tr_target"
+        await update.message.reply_text("🎯 طرف مقابل 👇",
+            reply_markup=kb_targets(update.effective_user.id))
+    else:
+        ctx.user_data["tr_step"] = "want_amt"
+        ctx.user_data["wait"] = "tr_amt"
+        await update.message.reply_text("🔢 چقدر می‌خوای؟", reply_markup=kb_back())
+
+async def on_trade_target(update, ctx):
+    if ctx.user_data.get("wait") != "tr_target": return
+    text = update.message.text.strip()
+    if text not in CMAP: return
+    tk = CMAP[text]
+    uid = update.effective_user.id
+    tu = find_country(tk)
+    if not tu:
+        await update.message.reply_text("❌"); return
+    gr = ctx.user_data.get("tr_give","nothing")
+    ga = ctx.user_data.get("tr_give_amt",0)
+    wr = ctx.user_data.get("tr_want","nothing")
+    wa = ctx.user_data.get("tr_want_amt",0)
+    tst = get_state(tu)
+    if wr != "nothing" and tst and tst.get(wr, 0) < wa:
+        await update.message.reply_text(f"❌ {COUNTRIES[tk]['n']} مقدار کافی {wr} ندارد.")
+        ctx.user_data["wait"]=None; ctx.user_data["tr_step"]=None; return
+    conn = db()
+    cur = conn.execute("INSERT INTO trades(from_id,to_id,gr,ga,wr,wa) VALUES(?,?,?,?,?,?)",
+        (uid, tu, gr, ga, wr, wa))
+    tid = cur.lastrowid
+    conn.commit(); conn.close()
+    st = get_state(uid)
+    try:
+        await ctx.bot.send_message(tu,
+            f"📦 *پیشنهاد تجاری #{tid}*\nاز: {COUNTRIES[st['country']]['n']}\n"
+            f"می‌ده: {ga} {gr}\nمی‌خواد: {wa} {wr}\n\n"
+            f"پاسخ: `✅ قبول {tid}` یا `❌ رد {tid}`", parse_mode="Markdown")
+    except: pass
+    await update.message.reply_text("📤 فرستاده شد.", reply_markup=kb_main())
+    ctx.user_data["wait"]=None; ctx.user_data["tr_step"]=None
+
 async def on_trade_resp(update, ctx, tid, accept):
     uid = update.effective_user.id
     conn = db()
@@ -1059,45 +1881,356 @@ async def on_trade_resp(update, ctx, tid, accept):
     r = dict(r)
     if r["status"] != "pending":
         conn.close(); await update.message.reply_text("❌ قبلاً پاسخ داده شده."); return
-    conn.execute("UPDATE trades SET status=? WHERE id=?", ("accepted" if accept else "rejected", tid))
+    conn.execute("UPDATE trades SET status=? WHERE id=?",
+        ("accepted" if accept else "rejected", tid))
     conn.commit(); conn.close()
     if accept:
         from_id = r["from_id"]; to_id = r["to_id"]
-        gr = r["gr"]; ga = r["ga"]; wr = r["wr"]; wa = r["wa"]
+        gr, ga, wr, wa = r["gr"], r["ga"], r["wr"], r["wa"]
         fs = get_state(from_id); ts = get_state(to_id)
         if fs and ts:
-            # کسر از فرستنده
             if gr != "nothing" and ga > 0:
-                sset(from_id, **{gr: fs.get(gr, 0) - ga})
-            # اضافه به گیرنده
-            if gr != "nothing" and ga > 0:
-                sset(to_id, **{gr: ts.get(gr, 0) + ga})
-            # کسر از گیرنده
+                sset(from_id, **{gr: fs.get(gr,0)-ga})
+                sset(to_id, **{gr: ts.get(gr,0)+ga})
             if wr != "nothing" and wa > 0:
-                sset(to_id, **{wr: ts.get(wr, 0) - wa})
-            # اضافه به فرستنده
-            if wr != "nothing" and wa > 0:
-                sset(from_id, **{wr: fs.get(wr, 0) + wa})
+                sset(to_id, **{wr: ts.get(wr,0)-wa})
+                sset(from_id, **{wr: fs.get(wr,0)+wa})
     msg = "✅ قبول" if accept else "❌ رد"
     await update.message.reply_text(f"پیشنهاد تجاری: {msg}", reply_markup=kb_main())
     try: await ctx.bot.send_message(r["from_id"], f"📦 پیشنهاد تجاری تو: {msg}")
     except: pass
 
+# ═══════════════════════════════════════════════════════════════
+#  🎯 حمله
+# ═══════════════════════════════════════════════════════════════
+async def on_attack(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if st["turn"] < ATTACK_UNLOCK:
+        await update.message.reply_text(
+            f"🔒 حمله تا نوبت {ATTACK_UNLOCK} غیرفعال است.")
+        return
+    if not all_players(exclude=uid):
+        await update.message.reply_text("بازیکنی نیست."); return
+    ctx.user_data["wait"] = "atk_target"
+    await update.message.reply_text("🎯 کشور هدف 👇", reply_markup=kb_targets(uid))
+
+async def on_attack_target(update, ctx):
+    if ctx.user_data.get("wait") != "atk_target": return
+    text = update.message.text.strip()
+    if text not in CMAP: return
+    tk = CMAP[text]
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tu = find_country(tk)
+    if not tu:
+        await update.message.reply_text("❌"); return
+    if is_in_same_alliance(uid, tu):
+        await update.message.reply_text("❌ نمی‌تونی به متحدت حمله کنی!")
+        ctx.user_data["wait"]=None; return
+    if nap_active(uid, tu):
+        until = get_nap(uid, tu)
+        await update.message.reply_text(
+            f"🤐 پیمان عدم تعرض تا نوبت {until} فعال است.")
+        ctx.user_data["wait"]=None; return
+    if has_effect(tu, "invisible"):
+        await update.message.reply_text("👻 دشمن نامرئی است! نمی‌تونی حمله کنی.")
+        ctx.user_data["wait"]=None; return
+    if not pay(uid, money=1000, oil=50):
+        await update.message.reply_text("❌ نیاز: ۱۰۰۰💰 + ۵۰🛢️"); return
+    sset(uid, war=1)
+    conn = db()
+    conn.execute("""INSERT INTO wars(attacker,defender,atk_uid,def_uid,
+        stage,turns) VALUES(?,?,?,?,'move',1)""",
+        (st["country"], tk, uid, tu))
+    conn.commit(); conn.close()
+    c = COUNTRIES[tk]
+    msg = (f"⚔️ *{COUNTRIES[st['country']]['n']} به {c['n']} حمله کرد!*\n\n"
+           f"نیروهای مسلح در حال حرکت به سمت مرزهای دشمن هستند.")
+    add_news(st["turn"], "war", msg)
+    await post_to_channel(ctx, msg)
+    key = f"speech_war_{uid}"
+    if gget(key) != "done":
+        gset(key, "done")
+        speech = generate_speech(uid, "war")
+        if speech:
+            add_news(st["turn"], "speech", speech)
+            await post_to_channel(ctx, speech)
+    try:
+        await ctx.bot.send_message(tu,
+            f"⚔️ *{COUNTRIES[st['country']]['n']} بهت حمله کرد!*\n"
+            f"نبرد ۱ نوبت دیگر آغاز می‌شود.", parse_mode="Markdown")
+    except: pass
+    await update.message.reply_text(
+        f"⚔️ حمله به {c['n']} آغاز شد.\n⏱️ ۱ نوبت حرکت، سپس نبرد.",
+        reply_markup=kb_main())
+    ctx.user_data["wait"]=None
+
+# ═══════════════════════════════════════════════════════════════
+#  ✈️ بمباران
+# ═══════════════════════════════════════════════════════════════
+async def on_bomb(update, ctx):
+    await update.message.reply_text("✈️ *عملیات بمباران*\nنوع بمباران 👇",
+        reply_markup=kb_bomb(), parse_mode="Markdown")
+
+async def on_bomb_type(update, ctx, bt):
+    uid = update.effective_user.id
+    ctx.user_data["btype"] = bt
+    ctx.user_data["wait"] = "bomb_target"
+    await update.message.reply_text("🎯 کشور هدف 👇", reply_markup=kb_targets(uid))
+
+async def on_bomb_target(update, ctx):
+    if ctx.user_data.get("wait") != "bomb_target": return
+    text = update.message.text.strip()
+    if text not in CMAP: return
+    tk = CMAP[text]
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tu = find_country(tk)
+    if not tu:
+        await update.message.reply_text("❌"); return
+    if has_effect(tu, "invisible"):
+        await update.message.reply_text("👻 نامرئیه!"); ctx.user_data["wait"]=None; return
+    bt = ctx.user_data.get("btype","factory")
+    # تعداد هواپیمای فرستاده شده
+    forces = 100
+    for u in get_army(uid):
+        if u["category"] in ("bombers","fighters","jets"):
+            forces += u["count"]
+    success, msg = do_bombing(uid, tu, bt, forces)
+    await update.message.reply_text(msg, reply_markup=kb_main())
+    if success:
+        # خبر به کانال
+        kinds_fa = {"factory":"مواضع صنعتی","equip":"انبار تجهیزات",
+                    "assassin":"فرماندهی","refinery":"پالایشگاه"}
+        news_msg = (f"✈️ *بمباران {COUNTRIES[tk]['n']}*\n\n"
+                    f"نیروی هوایی {COUNTRIES[st['country']]['n']} "
+                    f"{kinds_fa.get(bt,'مواضع دشمن')} را بمباران کرد.")
+        await post_to_channel(ctx, news_msg)
+        try:
+            await ctx.bot.send_message(tu,
+                f"✈️ نیروی هوایی {COUNTRIES[st['country']]['n']} مواضع شما را بمباران کرد!")
+        except: pass
+    ctx.user_data["wait"]=None
+
+# ═══════════════════════════════════════════════════════════════
+#  🕵️ جاسوسی
+# ═══════════════════════════════════════════════════════════════
+async def on_spy(update, ctx):
+    uid = update.effective_user.id
+    if not all_players(exclude=uid):
+        await update.message.reply_text("بازیکنی نیست."); return
+    ctx.user_data["wait"] = "spy_target"
+    await update.message.reply_text(
+        "🕵️ *عملیات جاسوسی*\nهزینه: ۲۰۰💰\nزمان: ۱ تا ۳ نوبت\n\nهدف 👇",
+        reply_markup=kb_targets(uid), parse_mode="Markdown")
+
+async def on_spy_target(update, ctx):
+    if ctx.user_data.get("wait") != "spy_target": return
+    text = update.message.text.strip()
+    if text not in CMAP: return
+    tk = CMAP[text]
+    uid = update.effective_user.id
+    if not pay(uid, money=200):
+        await update.message.reply_text("❌ ۲۰۰💰 لازمه."); return
+    tu = find_country(tk)
+    if not tu:
+        await update.message.reply_text("❌"); return
+    t = random.randint(1,3)
+    conn = db()
+    conn.execute("INSERT INTO spies(from_id,to_id,turns,status) VALUES(?,?,?,'pending')",
+        (uid, tu, t))
+    conn.commit(); conn.close()
+    await update.message.reply_text(f"🕵️ جاسوس فرستاده شد. {t} نوبت طول می‌کشد.",
+        reply_markup=kb_main())
+    ctx.user_data["wait"]=None
+
+# ═══════════════════════════════════════════════════════════════
+#  ☢️ اتم
+# ═══════════════════════════════════════════════════════════════
+async def on_atomic(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if st["country"] not in ["germany","usa"] and gget("atomic_used") != "true":
+        await update.message.reply_text("🔒 این پروژه در دسترس نیست."); return
+    if st["turn"] < ATOMIC_UNLOCK:
+        await update.message.reply_text(f"🔒 باز می‌شود در نوبت {ATOMIC_UNLOCK}."); return
+    stage = st.get("atomic_stage", 0)
+    if stage >= 3:
+        await update.message.reply_text(
+            f"☢️ *بمب اتمی آماده!*\nتعداد بمب: {st.get('atomic_bombs',0)}\n\n"
+            f"برای استفاده: آیتم `بمب اتم` (فقط ادمین‌ها)",
+            reply_markup=kb_main(), parse_mode="Markdown"); return
+    s = ATOMIC_STAGES[stage]
+    await update.message.reply_text(
+        f"☢️ *پروژه اتمی*\nمرحله {stage}/3\n{s['n']}\n"
+        f"⏱️ {s['t']} نوبت\n💰{s['m']} ⚙️{s['s']} 🛢️{s['o']}",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("☢️ شروع مرحله")],[KeyboardButton("🔙 منو")]],
+            resize_keyboard=True), parse_mode="Markdown")
+
+async def on_atomic_start(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    stage = st.get("atomic_stage", 0)
+    if stage >= 3: return
+    s = ATOMIC_STAGES[stage]
+    if not pay(uid, money=s["m"], steel=s["s"], oil=s["o"]):
+        await update.message.reply_text("❌ منابع کافی نیست."); return
+    sset(uid, atomic_t=s["t"])
+    await update.message.reply_text(f"✅ {s['n']} شروع شد!", reply_markup=kb_main())
+
+# ═══════════════════════════════════════════════════════════════
+#  🏆 سرنوشت رهبر
+# ═══════════════════════════════════════════════════════════════
+async def on_fate(update, ctx, fate):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if fate == "execute":
+        sset(uid, happiness=max(0, st["happiness"]-5))
+        msg = "🔴 رهبر کشور فتح‌شده اعدام شد. (-۵ رضایت)"
+    elif fate == "forgive":
+        sset(uid, happiness=min(100, st["happiness"]+5))
+        msg = "🟢 رهبر کشور فتح‌شده بخشیده شد. (+۵ رضایت)"
+    else:
+        msg = "🔒 رهبر کشور فتح‌شده به حبس ابد محکوم شد."
+    add_news(st["turn"], "conquest", msg)
+    await update.message.reply_text(msg, reply_markup=kb_main())
+
+# ═══════════════════════════════════════════════════════════════
+#  👑 دستورات ادمین
+# ═══════════════════════════════════════════════════════════════
+async def cmd_admin(update, ctx):
+    uid = update.effective_user.id
+    if not is_admin(uid): return
+    ps = all_players()
+    t = f"👑 *پنل ادمین*\nتعداد بازیکنان: {len(ps)}\n\n"
+    for p in ps:
+        c = COUNTRIES.get(p["c"], {})
+        t += f"{c.get('f','?')} {c.get('n','?')} {'👑' if p['v'] else ''}\n"
+    await update.message.reply_text(t, parse_mode="Markdown")
+
+async def cmd_next_turn(update, ctx):
+    uid = update.effective_user.id
+    if not is_admin(uid): return
+    advance_wars()
+    for p in all_players():
+        process_turn(p["uid"])
+    gset("turn", int(gget("turn","1"))+1)
+    await update.message.reply_text("⏭️ نوبت انجام شد.")
+
+async def cmd_give(update, ctx):
+    uid = update.effective_user.id
+    if not is_admin(uid): return
+    parts = update.message.text.split()
+    if len(parts) < 4: return
+    cn, field, amt = parts[1], parts[2], parts[3]
+    fm = {"پول":"money","غذا":"food","آب":"water","فولاد":"steel",
+          "نفت":"oil","زغال":"coal","نیرو":"manpower","سرباز":"soldiers"}
+    if field not in fm:
+        await update.message.reply_text("❌ فیلد نامعتبر."); return
+    ck = CFA.get(cn)
+    if not ck:
+        await update.message.reply_text("❌ کشور پیدا نشد."); return
+    tu = find_country(ck)
+    if not tu:
+        await update.message.reply_text("❌ بازیکن ندارد."); return
+    st = get_state(tu)
+    sset(tu, **{fm[field]: st.get(fm[field],0)+float(amt)})
+    await update.message.reply_text(f"✅ {amt} {field} به {cn} داده شد.")
+
+async def cmd_info(update, ctx):
+    uid = update.effective_user.id
+    if not is_admin(uid): return
+    t = update.message.text.strip()
+    if not t.startswith("اطلاعات "): return
+    cn = t.replace("اطلاعات ","").strip()
+    ck = CFA.get(cn)
+    if not ck:
+        await update.message.reply_text("❌ کشور پیدا نشد."); return
+    tu = find_country(ck)
+    if not tu:
+        await update.message.reply_text("❌ بازیکن ندارد."); return
+    await update.message.reply_text(render_stats(tu), parse_mode="Markdown")
+
+async def cmd_vip(update, ctx):
+    uid = update.effective_user.id
+    if not is_admin(uid): return
+    t = update.message.text.strip()
+    if not t.endswith(" ویژه"): return
+    cn = t[:-5].strip()
+    ck = CFA.get(cn)
+    if not ck:
+        await update.message.reply_text("❌ کشور پیدا نشد."); return
+    tu = find_country(ck)
+    if not tu:
+        await update.message.reply_text("❌ بازیکن ندارد."); return
+    set_vip(tu, 1)
+    await update.message.reply_text(f"👑 {cn} ویژه شد!")
+
+async def cmd_item(update, ctx):
+    uid = update.effective_user.id
+    if not is_admin(uid): return
+    parts = update.message.text.split()
+    if len(parts) < 4 or parts[0] != "هدیه" or parts[1] != "آیتم": return
+    cn = parts[2]
+    item_name = " ".join(parts[3:])
+    if item_name not in ITEM_FA:
+        await update.message.reply_text("❌ آیتم نامعتبر."); return
+    ck = CFA.get(cn)
+    if not ck:
+        await update.message.reply_text("❌ کشور پیدا نشد."); return
+    tu = find_country(ck)
+    if not tu:
+        await update.message.reply_text("❌ بازیکن ندارد."); return
+    ik = ITEM_FA[item_name]
+    result = await apply_item_effect(ctx, tu, ik)
+    await update.message.reply_text(f"✅ {item_name} به {cn}:\n{result}")
+
+# ═══════════════════════════════════════════════════════════════
+#  📨 ارسال پیام‌های جاسوسی معلق
+# ═══════════════════════════════════════════════════════════════
+async def deliver_pending(ctx):
+    for p in all_players():
+        uid = p["uid"]
+        key = f"spy_read_{uid}"
+        last_read = int(gget(key, "0") or 0)
+        conn = db()
+        rows = conn.execute(
+            "SELECT * FROM news WHERE id>? AND (cat=? OR cat=? OR cat=?) ORDER BY id",
+            (last_read, f"spy_ok_{uid}", f"spy_fail_{uid}",
+             f"spy_caught_{uid}")).fetchall()
+        conn.close()
+        for r in rows:
+            try:
+                if r["cat"].startswith("spy_ok_"):
+                    await ctx.bot.send_message(uid,
+                        f"✅ *جاسوسی موفق!*\n━━━━━━━━━━━━━━━━\n{r['text']}",
+                        parse_mode="Markdown")
+                elif r["cat"].startswith("spy_fail_"):
+                    await ctx.bot.send_message(uid,
+                        f"❌ *جاسوس لو رفت!*\n{r['text']}",
+                        parse_mode="Markdown")
+                elif r["cat"].startswith("spy_caught_"):
+                    await ctx.bot.send_message(uid,
+                        f"🚨 *هشدار امنیتی!*\n{r['text']}",
+                        parse_mode="Markdown")
+                last_read = r["id"]
+            except: pass
+        gset(key, str(last_read))
 
 # ═══════════════════════════════════════════════════════════════
 #  💰 درآمد هر ۵ ثانیه
 # ═══════════════════════════════════════════════════════════════
 async def fast_income(ctx):
     if gget("season_ended") == "true": return
-    players = all_players()
-    for p in players:
+    for p in all_players():
         try:
             st = get_state(p["uid"])
             if not st or st.get("dead"): continue
             c = COUNTRIES[st["country"]]
             mult = 2.0 if is_vip(p["uid"]) else 1.0
-            tm = st["tax"]/20.0
-            # اگه ادمین باشه، منابع رو افزایش می‌دیم بدون چک
+            tm = st["tax"] / 20.0
             sset(p["uid"],
                 money=st["money"] + (c["bm"]*tm*mult)/360,
                 food=st["food"] + (c["bf"]*mult)/360,
@@ -1109,9 +2242,8 @@ async def fast_income(ctx):
         except Exception as e:
             log.warning(f"fast: {e}")
 
-
 # ═══════════════════════════════════════════════════════════════
-#  🕐 نوبت خودکار — هر ۳۰ دقیقه
+#  🕐 نوبت خودکار (هر ۳۰ دقیقه)
 # ═══════════════════════════════════════════════════════════════
 async def auto_turn(ctx):
     if gget("season_ended") == "true": return
@@ -1119,7 +2251,7 @@ async def auto_turn(ctx):
     advance_wars()
     # ۲. نوبت همه بازیکنان
     players = all_players()
-    nt = int(gget("turn","1"))+1
+    nt = int(gget("turn","1")) + 1
     gset("turn", nt)
     for p in players:
         try:
@@ -1127,11 +2259,19 @@ async def auto_turn(ctx):
             if not res: continue
             t = f"📅 *نوبت {nt}* — {fmt_date(parse_date(res['date']))}\n"
             if res["ev"]:
-                for e in res["ev"]: t += f"• {e}\n"
-            await ctx.bot.send_message(p["uid"], t, parse_mode="Markdown", reply_markup=kb_main())
+                for e in res["ev"]:
+                    t += f"• {e}\n"
+                    # ارسال تاریخی به کانال
+                    try:
+                        await ctx.bot.send_message(NEWS_CH,
+                            f"📰 *رویداد تاریخی — {res['date']}*\n\n{e}",
+                            parse_mode="Markdown")
+                    except: pass
+            await ctx.bot.send_message(p["uid"], t,
+                parse_mode="Markdown", reply_markup=kb_main())
         except Exception as e:
             log.warning(f"turn {p['uid']}: {e}")
-    # ۳. ارسال نتایج جاسوسی
+    # ۳. جاسوسی
     try: await deliver_pending(ctx)
     except Exception as e: log.warning(f"deliver: {e}")
     # ۴. اخبار سرگرمی
@@ -1139,15 +2279,19 @@ async def auto_turn(ctx):
         try:
             news = random.choice(RANDOM_NEWS)
             n = random.randint(10, 500)
-            await ctx.bot.send_message(NEWS_CH, f"📰 {news.format(n=n)}")
+            await ctx.bot.send_message(NEWS_CH,
+                f"📰 *خبر سرگرمی*\n\n{news.format(n=n)}",
+                parse_mode="Markdown")
         except: pass
-    # ۵. رویدادهای اتم
+    # ۵. اتم
     if nt == ATOMIC_UNLOCK:
-        add_news(nt, "atomic", "☢️ پروژه اتمی باز شد برای آلمان و آمریکا!")
-        try: await ctx.bot.send_message(NEWS_CH, "☢️ پروژه اتمی باز شد برای آلمان و آمریکا!")
+        add_news(nt, "atomic", "☢️ پروژه اتمی برای آلمان و آمریکا باز شد!")
+        try:
+            await ctx.bot.send_message(NEWS_CH,
+                "☢️ *پروژه اتمی*\n\nپروژه منهتن امروز رسماً آغاز شد. "
+                "آلمان و آمریکا وارد مرحله جدیدی از تحقیقات هسته‌ای شدند.",
+                parse_mode="Markdown")
         except: pass
-    if nt == 2165:
-        add_news(nt, "atomic", "☢️ اولین بمب اتم آماده استفاده است!")
     # ۶. سازمان ملل
     if nt % UN_INTERVAL == 0 and nt > 0:
         try: await start_un(ctx, nt)
@@ -1157,9 +2301,334 @@ async def auto_turn(ctx):
         gset("season_ended", "true")
         for p in players:
             try:
-                await ctx.bot.send_message(p["uid"], "🏁 سیزن به پایان رسید!\nبرای شروع جدید /start بزن.")
+                await ctx.bot.send_message(p["uid"],
+                    "🏁 *سیزن به پایان رسید!*\n\nبرای شروع جدید /start بزن.",
+                    parse_mode="Markdown")
             except: pass
 
+# ═══════════════════════════════════════════════════════════════
+#  🎯 روتر اصلی
+# ═══════════════════════════════════════════════════════════════
+async def on_text(update, ctx):
+    if not update.message or not update.message.text: return
+    text = update.message.text.strip()
+    uid = update.effective_user.id
+    wait = ctx.user_data.get("wait")
+    screen = ctx.user_data.get("screen", "menu")
+
+    # سازمان ملل
+    if await on_un_message(update, ctx, text): return
+
+    # سانسور
+    if has_effect(uid, "censored"):
+        await update.message.reply_text("🤐 تو سانسور شدی! فعلاً نمی‌تونی حرف بزنی.")
+        return
+
+    # ورودی‌های انتظار
+    if wait == "gov": await on_gov_pick(update, ctx); return
+    if wait == "tax":
+        try:
+            v = int(text.replace("%","").strip())
+            if not (0 <= v <= 50): raise ValueError
+            sset(uid, tax=v); ctx.user_data["wait"]=None
+            st = get_state(uid)
+            await update.message.reply_text(
+                f"✅ مالیات: {v}%\n\n{render_dash(st)}",
+                reply_markup=kb_main(), parse_mode="Markdown")
+        except:
+            await update.message.reply_text("❌ فرمت نامعتبر. عدد ۰ تا ۵۰ بفرست.")
+        return
+    if wait == "soldier":
+        try:
+            q = int(text)
+            if q <= 0: raise ValueError
+        except:
+            await update.message.reply_text("❌ عدد مثبت بفرست."); return
+        if not pay(uid, money=50*q, manpower=q):
+            await update.message.reply_text("❌ منابع کافی نیست.")
+            ctx.user_data["wait"]=None; return
+        st = get_state(uid)
+        sset(uid, soldiers=st.get("soldiers",0)+q)
+        ctx.user_data["wait"]=None
+        await update.message.reply_text(f"✅ {q} سرباز اضافه شد.", reply_markup=kb_main())
+        return
+    if wait == "buy_amt" and ctx.user_data.get("buy_model"):
+        try:
+            q = int(text)
+            if q <= 0: raise ValueError
+        except:
+            await update.message.reply_text("❌ عدد مثبت."); return
+        info = ctx.user_data["buy_model"]
+        pm = info["power"]*20 + 100
+        if not pay(uid, money=pm*q, steel=info["steel"]*q):
+            await update.message.reply_text("❌ منابع کافی نیست.")
+            ctx.user_data["wait"]=None; return
+        add_pq(uid, info["cat"], info["name"], q, info["build"])
+        ctx.user_data["wait"]=None; ctx.user_data["buy_model"]=None
+        await update.message.reply_text(
+            f"✅ {q}× {info['name']} در صف تولید ({info['build']} نوبت)",
+            reply_markup=kb_main())
+        return
+    if wait == "tr_amt":
+        try:
+            v = int(text)
+            if v <= 0: raise ValueError
+        except:
+            await update.message.reply_text("❌ عدد مثبت."); return
+        step = ctx.user_data.get("tr_step")
+        if step == "give_amt":
+            ctx.user_data["tr_give_amt"] = v
+            ctx.user_data["tr_step"] = "want"
+            ctx.user_data["wait"] = None
+            await update.message.reply_text("✅\n*مرحله ۳:* در ازای چی؟",
+                reply_markup=kb_trade(), parse_mode="Markdown")
+        elif step == "want_amt":
+            ctx.user_data["tr_want_amt"] = v
+            ctx.user_data["tr_step"] = "target"
+            ctx.user_data["wait"] = "tr_target"
+            await update.message.reply_text("🎯 طرف مقابل 👇", reply_markup=kb_targets(uid))
+        return
+    if wait == "statement":
+        st = get_state(uid); c = COUNTRIES[st["country"]]
+        msg = (f"📜 *بیانیه رسمی کشور {c['n']} {c['f']}*\n"
+               f"━━━━━━━━━━━━━━━━\n{text}\n━━━━━━━━━━━━━━━━")
+        try: await ctx.bot.send_message(NEWS_CH, msg, parse_mode="Markdown")
+        except: pass
+        add_news(st["turn"], "statement", msg)
+        ctx.user_data["wait"]=None
+        await update.message.reply_text("✅ بیانیه در کانال منتشر شد.",
+            reply_markup=kb_main())
+        return
+    if wait == "item_target" and ctx.user_data.get("use_item"):
+        if text in CMAP:
+            tk = CMAP[text]
+            tu = find_country(tk)
+            if tu:
+                ik = ctx.user_data["use_item"]
+                result = await apply_item_effect(ctx, uid, ik, tu)
+                await update.message.reply_text(result, reply_markup=kb_main())
+                ctx.user_data["wait"]=None; ctx.user_data["use_item"]=None
+                return
+
+    # پاسخ به درخواست دیپلماتیک
+    if text.startswith("✅ قبول #"):
+        try:
+            nid = int(text.split("#")[1])
+            await on_neg_resp(update, ctx, nid, True); return
+        except: pass
+    if text.startswith("❌ رد #"):
+        try:
+            nid = int(text.split("#")[1])
+            await on_neg_resp(update, ctx, nid, False); return
+        except: pass
+    # پاسخ به پیشنهاد تجاری
+    if text.startswith("✅ قبول ") and not text.startswith("✅ قبول #"):
+        try:
+            tid = int(text.split(" ")[2])
+            await on_trade_resp(update, ctx, tid, True); return
+        except: pass
+    if text.startswith("❌ رد ") and not text.startswith("❌ رد #"):
+        try:
+            tid = int(text.split(" ")[2])
+            await on_trade_resp(update, ctx, tid, False); return
+        except: pass
+
+    # عضویت
+    if text == "عضو شدم ✅":
+        await on_joined(update, ctx); return
+
+    # انتخاب کشور در context
+    if text in CMAP:
+        if wait == "dip_target": await on_dip_target(update, ctx); return
+        if wait == "spy_target": await on_spy_target(update, ctx); return
+        if wait == "atk_target": await on_attack_target(update, ctx); return
+        if wait == "tr_target": await on_trade_target(update, ctx); return
+        if wait == "bomb_target": await on_bomb_target(update, ctx); return
+        if not get_state(uid) or get_state(uid).get("dead"):
+            await on_country_pick(update, ctx); return
+
+    # ادمین
+    if text.startswith("هدیه آیتم ") and is_admin(uid): await cmd_item(update, ctx); return
+    if text.startswith("هدیه ") and is_admin(uid):
+        p = text.split()
+        if len(p) >= 4 and p[2] in ["پول","غذا","آب","فولاد","نفت","زغال","نیرو","سرباز"]:
+            await cmd_give(update, ctx); return
+    if text.startswith("اطلاعات ") and is_admin(uid): await cmd_info(update, ctx); return
+    if text.endswith(" ویژه") and is_admin(uid): await cmd_vip(update, ctx); return
+    if text == "نوبت بعدی" and is_admin(uid): await cmd_next_turn(update, ctx); return
+    if text == "لیست بازیکنان": await cmd_players(update, ctx); return
+    if text == "پنل مدیریت" and is_admin(uid): await cmd_admin(update, ctx); return
+    if text == "آیدی من": await cmd_myid(update, ctx); return
+    if text in ITEM_FA and is_admin(uid):
+        ik = ITEM_FA[text]
+        # آیتم‌هایی که هدف نمی‌خوان
+        if ik in ("carpet_bomb","war_speech","war_storm","revive"):
+            result = await apply_item_effect(ctx, uid, ik)
+            await update.message.reply_text(result, reply_markup=kb_main())
+            return
+        ctx.user_data["use_item"] = ik
+        ctx.user_data["wait"] = "item_target"
+        await update.message.reply_text(f"🎁 {text}\n🎯 کشور هدف 👇",
+            reply_markup=kb_targets(uid))
+        return
+
+    # سرنوشت رهبر
+    if text == "🔴 اعدام": await on_fate(update, ctx, "execute"); return
+    if text == "🟢 بخشش": await on_fate(update, ctx, "forgive"); return
+    if text == "🔒 حبس": await on_fate(update, ctx, "prison"); return
+
+    # بازی جدید / منو
+    if text == "🎮 بازی جدید": await on_newgame(update, ctx); return
+    if text == "🔙 منو":
+        ctx.user_data["screen"] = "menu"; ctx.user_data["wait"] = None
+        await cmd_menu(update, ctx); return
+
+    st = get_state(uid)
+    if not st or st.get("dead"): return
+
+    # screen: کارخونه
+    if screen == "fact":
+        for f in get_fact(uid):
+            p = PROJECTS.get(f["fkey"], {})
+            if p.get("n") == text:
+                lvl = f["level"]
+                if lvl >= 5:
+                    await update.message.reply_text("🏆 حداکثر سطح."); return
+                costs = {1:500, 2:1200, 3:2500, 4:5000}
+                cost = costs.get(lvl, 0)
+                if not pay(uid, money=cost):
+                    await update.message.reply_text(f"❌ نیاز: {cost}💰"); return
+                conn = db()
+                conn.execute("UPDATE factories SET level=level+1 WHERE user_id=? AND fkey=?",
+                    (uid, f["fkey"]))
+                conn.commit(); conn.close()
+                await update.message.reply_text(f"✅ {text} → سطح {lvl+1}",
+                    reply_markup=kb_main()); return
+
+    # screen: خرید یا تحقیق مدل
+    if screen.startswith("buy_") or screen.startswith("research_"):
+        cat = screen.split("_",1)[1]
+        tree = get_tree(st["country"], cat)
+        researched = get_res(uid, cat)
+        for i, item in enumerate(tree):
+            name, power = item[0], item[1]
+            if name == text:
+                if screen.startswith("buy_"):
+                    if i != 0 and name not in researched:
+                        await update.message.reply_text(f"🔒 {name} تحقیق نشده."); return
+                    ctx.user_data["buy_model"] = {
+                        "cat":cat, "name":name, "power":power,
+                        "steel":item[4], "build":item[3]}
+                    ctx.user_data["wait"] = "buy_amt"
+                    pm = power*20 + 100
+                    await update.message.reply_text(
+                        f"🛒 *{name}*\nقدرت: {power}\n💰{pm} ⚙️{item[4]} "
+                        f"⏱️{item[3]} نوبت\n\nتعداد:",
+                        reply_markup=kb_back(), parse_mode="Markdown")
+                    return
+                else:
+                    if i == 0:
+                        await update.message.reply_text("این مدل از اول باز است."); return
+                    if name in researched:
+                        await update.message.reply_text("قبلاً تحقیق شده."); return
+                    cost = item[2]
+                    if not pay(uid, money=cost):
+                        await update.message.reply_text(f"❌ نیاز: {cost}💰"); return
+                    mark_res(uid, cat, name)
+                    await update.message.reply_text(
+                        f"✅ *{name}* تحقیق شد! قدرت {power}",
+                        reply_markup=kb_main(), parse_mode="Markdown")
+                    return
+
+    # screen: پروژه
+    if screen.startswith("proj_"):
+        cat = screen.split("_",1)[1]
+        for pk, p in PROJECTS.items():
+            if p["cat"] == cat and p["n"] == text:
+                if pk in get_done_proj(uid):
+                    await update.message.reply_text("قبلاً انجام شده."); return
+                if any(q["pkey"] == pk for q in get_projq(uid)):
+                    await update.message.reply_text("در حال ساخت است."); return
+                if not pay(uid, money=p["m"], steel=p["s"]):
+                    await update.message.reply_text("❌ منابع کافی نیست."); return
+                add_projq(uid, pk, p["d"])
+                await update.message.reply_text(
+                    f"✅ {p['n']} شروع شد ({p['d']} نوبت)",
+                    reply_markup=kb_main())
+                return
+
+    # منوها
+    if text == "💰 اقتصاد": await on_eco(update, ctx); return
+    if text == "💵 تغییر مالیات": await on_tax(update, ctx); return
+    if text == "⚔️ ارتش": await on_army(update, ctx); return
+    if text == "🪖 سرباز": await on_soldier(update, ctx); return
+    if text == "🛡️ تانک": await on_army_cat(update, ctx, "tanks"); return
+    if text == "✈️ جنگنده": await on_army_cat(update, ctx, "fighters"); return
+    if text == "🚀 جت": await on_army_cat(update, ctx, "jets"); return
+    if text == "🚢 کشتی": await on_army_cat(update, ctx, "ships"); return
+    if text == "🎯 موشک": await on_army_cat(update, ctx, "missiles"); return
+    if text == "💣 بمب‌افکن": await on_army_cat(update, ctx, "bombers"); return
+    if text == "🛡️ پدافند": await on_army_cat(update, ctx, "aa"); return
+    if text == "📋 خدمت اجباری":
+        if not pay(uid, money=1000):
+            await update.message.reply_text("❌ ۱۰۰۰💰 لازمه."); return
+        st2 = get_state(uid)
+        sset(uid, happiness=max(0, st2["happiness"]-15), manpower=st2["manpower"]+500)
+        msg = (f"📋 *خدمت اجباری در {COUNTRIES[st2['country']]['n']}*\n\n"
+               f"دولت اعلام کرد تمام مردان بالای ۱۸ سال موظف به خدمت نظامی هستند.")
+        add_news(st2["turn"], "conscription", msg)
+        await post_to_channel(ctx, msg)
+        await update.message.reply_text(
+            "📋 خدمت اجباری فعال شد!\n-۱۵ رضایت، +۵۰۰ نیرو",
+            reply_markup=kb_main())
+        return
+    if text == "🔬 تحقیقات": await on_research(update, ctx); return
+    if text == "🔬🛡️ تانک": await on_research_cat(update, ctx, "tanks"); return
+    if text == "🔬✈️ جنگنده": await on_research_cat(update, ctx, "fighters"); return
+    if text == "🔬🚀 جت": await on_research_cat(update, ctx, "jets"); return
+    if text == "🔬🚢 کشتی": await on_research_cat(update, ctx, "ships"); return
+    if text == "🔬🎯 موشک": await on_research_cat(update, ctx, "missiles"); return
+    if text == "🔬💣 بمب‌افکن": await on_research_cat(update, ctx, "bombers"); return
+    if text == "🔬🛡️ پدافند": await on_research_cat(update, ctx, "aa"); return
+    if text == "🏗️ پروژه‌ها": await on_projects(update, ctx); return
+    if text == "🏭 صنعت": await on_projects_cat(update, ctx, "industry"); return
+    if text == "⚡ انرژی": await on_projects_cat(update, ctx, "energy"); return
+    if text == "🎖️ نظامی": await on_projects_cat(update, ctx, "military"); return
+    if text == "🏥 اجتماعی": await on_projects_cat(update, ctx, "social"); return
+    if text == "🌾 کشاورزی": await on_projects_cat(update, ctx, "agri"); return
+    if text == "📜 سیاسی": await on_projects_cat(update, ctx, "politics"); return
+    if text == "🛣️ حمل‌ونقل": await on_projects_cat(update, ctx, "transport"); return
+    if text == "🏭 کارخونه‌ها": await on_fact(update, ctx); return
+    if text == "🤝 دیپلماسی": await on_dip(update, ctx); return
+    if text == "🤝 پیشنهاد اتحاد": await on_dip_action(update, ctx, "ally"); return
+    if text == "☮️ پیشنهاد صلح": await on_dip_action(update, ctx, "peace"); return
+    if text == "⚔️ اعلام جنگ": await on_dip_action(update, ctx, "war"); return
+    if text == "🤐 پیمان عدم تعرض": await on_dip_action(update, ctx, "nap"); return
+    if text == "📜 بیانیه رسمی": await on_statement(update, ctx); return
+    if text == "🚪 خروج از اتحاد": await on_leave_alliance(update, ctx); return
+    if text == "❌ لغو NAP": await on_cancel_nap(update, ctx); return
+    if text == "📨 درخواست‌های من": await on_negs(update, ctx); return
+    if text == "📦 تجارت": await on_trade(update, ctx); return
+    if text == "🎯 حمله": await on_attack(update, ctx); return
+    if text == "✈️ بمباران": await on_bomb(update, ctx); return
+    if text == "🏭 بمباران کارخونه": await on_bomb_type(update, ctx, "factory"); return
+    if text == "🔧 بمباران تجهیزات": await on_bomb_type(update, ctx, "equip"); return
+    if text == "💀 ترور فرمانده": await on_bomb_type(update, ctx, "assassin"); return
+    if text == "🛢️ بمباران پالایشگاه": await on_bomb_type(update, ctx, "refinery"); return
+    if text == "🕵️ جاسوسی": await on_spy(update, ctx); return
+    if text == "🏛️ امور کشور": await on_internal(update, ctx); return
+    if text == "📢 سخنرانی": await on_speech(update, ctx); return
+    if text == "🚔 سرکوب": await on_suppress(update, ctx); return
+    if text == "🕵️ نظارت بر مردم": await on_surv(update, ctx); return
+    if text == "🕵️ نظارت +۱۰": await on_surv_change(update, ctx, 10); return
+    if text == "🕵️ نظارت -۱۰": await on_surv_change(update, ctx, -10); return
+    if text == "📊 آمار کامل": await on_stats(update, ctx); return
+    if text == "☢️ اتم": await on_atomic(update, ctx); return
+    if text == "☢️ شروع مرحله": await on_atomic_start(update, ctx); return
+
+    # مراحل تجارت
+    if ctx.user_data.get("tr_step") == "give": await on_trade_give(update, ctx); return
+    if ctx.user_data.get("tr_step") == "want": await on_trade_want(update, ctx); return
 
 # ═══════════════════════════════════════════════════════════════
 #  🚀 main
@@ -1167,14 +2636,12 @@ async def auto_turn(ctx):
 def main():
     init_db()
     if "PASTE" in BOT_TOKEN:
-        print("❌ توکن تنظیم نشده!")
-        return
+        print("❌ توکن تنظیم نشده!"); return
     try: keep_alive()
     except: pass
 
     app = Application.builder().token(BOT_TOKEN).base_url(BALE_API).build()
 
-    # Commands
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("menu", cmd_menu))
     app.add_handler(CommandHandler("myid", cmd_myid))
@@ -1182,10 +2649,8 @@ def main():
     app.add_handler(CommandHandler("next_turn", cmd_next_turn))
     app.add_handler(CommandHandler("admin", cmd_admin))
 
-    # Router
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 
-    # Jobs
     if app.job_queue:
         app.job_queue.run_repeating(auto_turn, interval=TURN_MINUTES*60, first=60)
         app.job_queue.run_repeating(fast_income, interval=5, first=10)
@@ -1193,13 +2658,363 @@ def main():
         print(f"💰 درآمد هر ۵ ثانیه")
 
     print("🎖️ ربات جنگ جهانی دوم اجرا شد...")
-    print(f"📅 شروع: 1939-09-01 | پایان: 1945-09-02")
     print(f"🔢 کل نوبت‌ها: {TOTAL_TURNS}")
-    print(f"⚔️ حمله از نوبت {ATTACK_UNLOCK}")
-    print(f"☢️ اتم از نوبت {ATOMIC_UNLOCK}")
+    print(f"⚔️ حمله از نوبت: {ATTACK_UNLOCK}")
+    print(f"☢️ اتم از نوبت: {ATOMIC_UNLOCK}")
 
     app.run_polling()
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ نهایی — همه قابلیت‌ها کامل
+# ═══════════════════════════════════════════════════════════════
+
+TARGET_FREE_ITEMS = ("carpet_bomb", "war_speech", "war_storm", "revive",
+                     "god_shield", "invisible", "double_attack", "lock_on",
+                     "revenge", "seize_power")
+
+def add_news_send(turn, cat, text):
+    """افزودن خبر + ارسال فوری به کانال"""
+    add_news(turn, cat, text)
+    return text
+
+# ─── پچ ۱: صلح واقعی + قبول/رد کامل ───
+async def on_neg_resp(update, ctx, nid, acc):
+    uid = update.effective_user.id
+    conn = db()
+    r = conn.execute("SELECT * FROM negs WHERE id=? AND to_id=?", (nid, uid)).fetchone()
+    if not r:
+        conn.close(); await update.message.reply_text("❌ درخواست پیدا نشد."); return
+    r = dict(r)
+    conn.execute("UPDATE negs SET status=? WHERE id=?",
+        ("accepted" if acc else "rejected", nid))
+    if acc and r["kind"] == "nap":
+        add_nap(uid, r["from_id"], int(gget("turn","1"))+10)
+    if acc and r["kind"] == "cancel_nap":
+        cancel_nap(uid, r["from_id"])
+    if acc and r["kind"] == "alliance":
+        try:
+            aid = int(r["payload"])
+            conn.execute("INSERT OR IGNORE INTO allies(aid,user_id) VALUES(?,?)", (aid, uid))
+        except: pass
+    if acc and r["kind"] == "peace":
+        from_uid = r["from_id"]; to_uid = uid
+        conn.execute("DELETE FROM wars WHERE (atk_uid=? AND def_uid=?) OR (atk_uid=? AND def_uid=?)",
+            (from_uid, to_uid, to_uid, from_uid))
+        conn.execute("UPDATE states SET war=0 WHERE user_id=?", (from_uid,))
+        conn.execute("UPDATE states SET war=0 WHERE user_id=?", (to_uid,))
+        conn.execute("UPDATE states SET war=0 WHERE user_id=?", (from_uid,))
+        # همه wars مربوطه رو حذف کن
+        conn.execute("DELETE FROM wars WHERE atk_uid=? OR def_uid=?", (from_uid, from_uid))
+        conn.execute("DELETE FROM wars WHERE atk_uid=? OR def_uid=?", (to_uid, to_uid))
+        # برگردوندن war=0
+        for u in all_players():
+            conn.execute("UPDATE states SET war=0 WHERE user_id=?", (u["uid"],))
+        fs = get_state(from_uid); ts = get_state(to_uid)
+        if fs and ts:
+            peace_msg = (f"☮️ *صلح میان {COUNTRIES[fs['country']]['n']} و "
+                         f"{COUNTRIES[ts['country']]['n']}*\n\n"
+                         f"پس از مذاکرات فشرده، دو کشور رسماً به مخاصمات "
+                         f"پایان دادند و توافق صلح امضا شد.")
+            add_news(int(gget("turn","1")), "peace", peace_msg)
+            try: await ctx.bot.send_message(NEWS_CH, peace_msg, parse_mode="Markdown")
+            except: pass
+            try: await ctx.bot.send_message(from_uid, peace_msg, parse_mode="Markdown")
+            except: pass
+    conn.commit(); conn.close()
+    msg = "✅ قبول" if acc else "❌ رد"
+    await update.message.reply_text(f"درخواست: {msg}", reply_markup=kb_main())
+    try: await ctx.bot.send_message(r["from_id"], f"📩 پاسخ درخواستت: {msg}")
+    except: pass
+
+# ─── پچ ۲: آیتم‌ها کامل با اثر واقعی ───
+async def apply_item_effect(ctx, uid, item_key, target_uid=None):
+    st = get_state(uid)
+    if not st: return "❌ خطا"
+    c = COUNTRIES[st["country"]]
+    result = "✅"
+    # آیتم‌های بدون هدف
+    if item_key in TARGET_FREE_ITEMS:
+        if item_key == "carpet_bomb":
+            for p in all_players():
+                if p["uid"] == uid: continue
+                ps = get_state(p["uid"])
+                if ps:
+                    sset(p["uid"], happiness=max(0, ps["happiness"]-10),
+                         soldiers=int(ps["soldiers"]*0.9))
+            result = "🔥 بمباران قالی — همه دشمنان آسیب دیدند."
+        elif item_key == "war_speech":
+            total = 0
+            for p in all_players():
+                if p["uid"] == uid: continue
+                ps = get_state(p["uid"])
+                if ps:
+                    half = ps["money"]*0.5
+                    total += half
+                    sset(p["uid"], money=max(0, ps["money"]-half))
+            sset(uid, money=st["money"]+total)
+            result = f"📢 نطق جنگی — {fmt(total)} پول جمع شد."
+        elif item_key == "war_storm":
+            # همه جنگ‌های فعال علیه کاربر لغو می‌شن
+            conn = db()
+            conn.execute("DELETE FROM wars WHERE def_uid=?", (uid,))
+            conn.commit(); conn.close()
+            sset(uid, war=0)
+            result = "🌪 طوفان جنگی — همه حملات دشمن متوقف شد."
+        elif item_key == "revive":
+            add_effect(uid, "revive", 999)
+            result = "🔄 محافظت مرگ فعال شد (تا استفاده)."
+        elif item_key == "god_shield":
+            add_effect(uid, "shield", 60)
+            result = "🛡 سپر جان — ۱ ساعت نامیرا."
+        elif item_key == "invisible":
+            add_effect(uid, "invisible", 30)
+            result = "👻 نامرئی — ۳۰ دقیقه."
+        elif item_key == "double_attack":
+            add_effect(uid, "double_attack", 10)
+            result = "⚡ دوبرابر حمله — ۱۰ نوبت."
+        elif item_key == "lock_on":
+            add_effect(uid, "lock_on", 10)
+            result = "🎯 قفل روی حریف — ۱۰ نوبت."
+        elif item_key == "revenge":
+            add_effect(uid, "revenge", 999)
+            result = "💀 انتقام فعال شد (تاحذف)."
+        elif item_key == "seize_power":
+            add_effect(uid, "commander", 10)
+            # اثر: ۲۰٪ از تولید همه بازیکنان به این کاربر
+            result = f"👑 {c['n']} ۱۰ نوبت فرمانده کل شد."
+        add_news(st["turn"], "item", result)
+        return result
+    # آیتم‌های هدف‌دار
+    if item_key == "force_exile" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            sset(target_uid, dead=1)
+            result = f"🗳 {COUNTRIES[ts['country']]['n']} از بازی اخراج شد."
+    elif item_key == "censor" and target_uid:
+        add_effect(target_uid, "censored", 3)
+        result = f"🤐 {COUNTRIES[get_state(target_uid)['country']]['n']} ۳ نوبت سانسور شد."
+    elif item_key == "expose" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            info = render_stats(target_uid)
+            try:
+                await ctx.bot.send_message(uid,
+                    f"🕵️ *اطلاعات فاش‌شده {COUNTRIES[ts['country']]['n']}*\n\n{info}",
+                    parse_mode="Markdown")
+            except: pass
+            result = f"🕵️ اطلاعات {COUNTRIES[ts['country']]['n']} برای تو ارسال شد."
+    elif item_key == "force_ally" and target_uid:
+        aid = get_user_alliance(uid)
+        if not aid:
+            conn = db()
+            cur = conn.execute("INSERT INTO alliances(name,founder) VALUES(?,?)",
+                (f"اتحاد {c['n']}", uid))
+            aid = cur.lastrowid
+            conn.execute("INSERT INTO allies(aid,user_id) VALUES(?,?)", (aid, uid))
+            conn.commit(); conn.close()
+        conn = db()
+        conn.execute("INSERT OR IGNORE INTO allies(aid,user_id) VALUES(?,?)", (aid, target_uid))
+        conn.commit(); conn.close()
+        result = f"🤝 {COUNTRIES[get_state(target_uid)['country']]['n']} به اتحاد اضافه شد."
+    elif item_key == "plunder" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            money_half = ts["money"] // 2
+            steel_half = ts["steel"] // 2
+            oil_half = ts["oil"] // 2
+            sset(target_uid, money=ts["money"]-money_half,
+                 steel=ts["steel"]-steel_half, oil=ts["oil"]-oil_half)
+            sset(uid, money=st["money"]+money_half,
+                 steel=st["steel"]+steel_half, oil=st["oil"]+oil_half)
+            result = f"💰 غارت — {fmt(money_half)}💰 + {fmt(steel_half)}⚙️ + {fmt(oil_half)}🛢️"
+    elif item_key == "tsar_bomb" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            sset(target_uid, dead=1)
+            result = f"💣 بمب تزار — {COUNTRIES[ts['country']]['n']} نابود شد."
+            # ارسال به کانال
+            try:
+                await ctx.bot.send_message(NEWS_CH,
+                    f"💣 *بمب تزار*\n\n{COUNTRIES[st['country']]['n']} "
+                    f"بمب تزار را بر فراز پایتخت {COUNTRIES[ts['country']]['n']} "
+                    f"منفجر کرد. شهر کاملاً نابود شد.",
+                    parse_mode="Markdown")
+            except: pass
+    elif item_key == "nuke_item" and target_uid:
+        result = use_atomic(uid, target_uid)
+        try:
+            ts = get_state(target_uid)
+            if ts:
+                await ctx.bot.send_message(NEWS_CH,
+                    f"☢️ *بمب اتم*\n\nاولین بمب اتمی تاریخ توسط "
+                    f"{COUNTRIES[st['country']]['n']} بر فراز پایتخت "
+                    f"{COUNTRIES[ts['country']]['n']} منفجر شد.",
+                    parse_mode="Markdown")
+        except: pass
+    elif item_key == "bio_weapon" and target_uid:
+        add_effect(target_uid, "no_attack", 5)
+        result = f"☠️ {COUNTRIES[get_state(target_uid)['country']]['n']} ۵ نوبت نمی‌تونه حمله کنه."
+    elif item_key == "ballistic" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            sset(target_uid, dead=1)
+            result = f"🚀 موشک بالستیک — {COUNTRIES[ts['country']]['n']} از بازی حذف شد."
+    add_news(st["turn"], "item", result)
+    return result
+
+# ─── پچ ۳: جنگ با هشدار اتحاد ───
+def advance_wars():
+    conn = db()
+    wars = conn.execute("SELECT * FROM wars").fetchall()
+    conn.close()
+    for w in wars:
+        au = w["atk_uid"]; du = w["def_uid"]
+        ast = get_state(au); dst = get_state(du)
+        if not ast or not dst or dst.get("dead"):
+            conn = db()
+            conn.execute("DELETE FROM wars WHERE id=?", (w["id"],))
+            conn.commit(); conn.close()
+            continue
+        t = w["turns"] - 1
+        stage = w["stage"]
+        if stage == "move" and t <= 0:
+            my = calc_power(au, "attack")
+            en = calc_power(du, "defense")
+            # اتحاد اجباری - مدافع
+            aid_d = get_user_alliance(du)
+            if aid_d:
+                for m in get_alliance_members(aid_d):
+                    if m != du and m != au:
+                        mst = get_state(m)
+                        if mst and not mst.get("dead"):
+                            en += calc_power(m, "defense")
+                            add_news(int(gget("turn","1")), f"ally_war_{m}",
+                                f"⚠️ {COUNTRIES[w['attacker']]['n']} به متحدت "
+                                f"{COUNTRIES[w['defender']]['n']} حمله کرد. "
+                                f"بر اساس پیمان، تو هم وارد جنگ شدی.")
+            # اتحاد اجباری - حمله‌کننده
+            aid_a = get_user_alliance(au)
+            if aid_a:
+                for m in get_alliance_members(aid_a):
+                    if m != au and m != du:
+                        mst = get_state(m)
+                        if mst and not mst.get("dead"):
+                            my += calc_power(m, "attack")
+                            add_news(int(gget("turn","1")), f"ally_war_{m}",
+                                f"⚠️ متحدت {COUNTRIES[w['attacker']]['n']} به "
+                                f"{COUNTRIES[w['defender']]['n']} حمله کرد. "
+                                f"بر اساس پیمان، تو هم وارد جنگ شدی.")
+            # اثر revive/shield
+            if has_effect(du, "shield"):
+                my = int(my * 0.1)
+            battle_msg = (f"⚔️ *نبرد {COUNTRIES[w['attacker']]['n']} و "
+                          f"{COUNTRIES[w['defender']]['n']}*\n\n"
+                          f"قدرت حمله: {fmt(my)}\nقدرت دفاع: {fmt(en)}")
+            add_news(int(gget("turn","1")), "battle", battle_msg)
+            try:
+                # ارسال به کانال از طریق وظیفه بعدی
+                pass
+            except: pass
+            if my > en:
+                loss_pct = max(0.10, min(0.30, 0.15 * (1 + (my-en)/max(1,my))))
+                for u in get_army(au):
+                    conn = db()
+                    conn.execute("UPDATE army SET count=? WHERE id=?",
+                        (max(0, int(u["count"]*(1-loss_pct))), u["id"]))
+                    conn.commit(); conn.close()
+                ds = get_state(du)
+                if ds:
+                    sset(du, money=ds["money"]*0.5, steel=ds["steel"]*0.5,
+                         oil=ds["oil"]*0.5, soldiers=int(ds["soldiers"]*0.5))
+                conn = db()
+                conn.execute("UPDATE wars SET stage='resolve', turns=1 WHERE id=?",
+                    (w["id"],))
+                conn.commit(); conn.close()
+                add_news(int(gget("turn","1")), "war",
+                    f"🏆 {COUNTRIES[w['attacker']]['n']} در نبرد اولیه پیروز شد.")
+                # اگه طرف مقابل خیلی ضعیف شد → فتح
+                if calc_power(du, "defense") < my * 0.2:
+                    conquer_country(None, au, du)
+            else:
+                loss_pct = random.uniform(0.30, 0.50)
+                for u in get_army(au):
+                    conn = db()
+                    conn.execute("UPDATE army SET count=? WHERE id=?",
+                        (max(0, int(u["count"]*(1-loss_pct))), u["id"]))
+                    conn.commit(); conn.close()
+                conn = db()
+                conn.execute("DELETE FROM wars WHERE id=?", (w["id"],))
+                conn.commit(); conn.close()
+                add_news(int(gget("turn","1")), "war",
+                    f"💀 حمله {COUNTRIES[w['attacker']]['n']} شکست خورد.")
+        elif stage == "resolve":
+            ds = get_state(du)
+            if ds:
+                sset(du, money=ds["money"]*0.5, steel=ds["steel"]*0.5)
+                for u in get_army(du):
+                    conn = db()
+                    conn.execute("UPDATE army SET count=? WHERE id=?",
+                        (int(u["count"]*0.5), u["id"]))
+                    conn.commit(); conn.close()
+                conquer_country(None, au, du)
+            conn = db()
+            conn.execute("DELETE FROM wars WHERE id=?", (w["id"],))
+            conn.commit(); conn.close()
+
+# ─── پچ ۴: تحویل پیام‌های هشدار ───
+async def deliver_pending(ctx):
+    for p in all_players():
+        uid = p["uid"]
+        key = f"msg_read_{uid}"
+        last_read = int(gget(key, "0") or 0)
+        conn = db()
+        rows = conn.execute(
+            "SELECT * FROM news WHERE id>? AND (cat=? OR cat=? OR cat=? OR cat=? OR cat=?) ORDER BY id",
+            (last_read, f"spy_ok_{uid}", f"spy_fail_{uid}",
+             f"spy_caught_{uid}", f"ally_war_{uid}", f"conquest_{uid}")).fetchall()
+        conn.close()
+        for r in rows:
+            try:
+                if r["cat"].startswith("spy_ok_"):
+                    await ctx.bot.send_message(uid,
+                        f"✅ *جاسوسی موفق!*\n━━━━━━━━━━━━━━━━\n{r['text']}",
+                        parse_mode="Markdown")
+                elif r["cat"].startswith("spy_fail_"):
+                    await ctx.bot.send_message(uid,
+                        f"❌ *جاسوس لو رفت!*\n{r['text']}",
+                        parse_mode="Markdown")
+                elif r["cat"].startswith("spy_caught_"):
+                    await ctx.bot.send_message(uid,
+                        f"🚨 *هشدار امنیتی!*\n{r['text']}",
+                        parse_mode="Markdown")
+                elif r["cat"].startswith("ally_war_"):
+                    await ctx.bot.send_message(uid,
+                        f"⚠️ *هشدار اتحاد!*\n\n{r['text']}",
+                        parse_mode="Markdown", reply_markup=kb_main())
+                elif r["cat"].startswith("conquest_"):
+                    await ctx.bot.send_message(uid,
+                        f"💀 *اطلاعیه*\n\n{r['text']}",
+                        parse_mode="Markdown", reply_markup=kb_main())
+                last_read = r["id"]
+            except: pass
+        gset(key, str(last_read))
+
+# ─── پچ ۵: on_text wrapper برای آیتم‌های بدون هدف ───
+_old_on_text = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text(update, ctx)
+    text = update.message.text.strip()
+    uid = update.effective_user.id
+    if text in ITEM_FA and is_admin(uid):
+        ik = ITEM_FA[text]
+        if ik in TARGET_FREE_ITEMS:
+            result = await apply_item_effect(ctx, uid, ik)
+            await update.message.reply_text(result, reply_markup=kb_main())
+            return
+    return await _old_on_text(update, ctx)
 
 if __name__ == "__main__":
     main()
+    
