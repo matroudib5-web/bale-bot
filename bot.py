@@ -5368,5 +5368,125 @@ COUNTRIES["uk"]["n"] = "بریتانیا"
 CMAP = {f"{c['f']} {c['n']}":k for k,c in COUNTRIES.items()}
 CFA = {c['n']:k for k,c in COUNTRIES.items()}
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ — حذف neglect، ۱ اقدام از هر بخش در نوبت
+# ═══════════════════════════════════════════════════════════════
+
+# دسته‌بندی اقدامات
+ACTION_SECTION = {
+    # امور مردم
+    "🏥 بیمارستان جدید": "people",
+    "📚 مدرسه جدید": "people",
+    "💧 سیستم آب": "people",
+    "🏠 مسکن عمومی": "people",
+    "🍞 سهمیه غذا": "people",
+    # امور حکومت
+    "📜 اصلاحات مدنی": "gov",
+    "⚖️ اصلاح قضایی": "gov",
+    "💰 مبارزه با فساد": "gov",
+    "🏛️ قانون اساسی": "gov",
+    "📻 تبلیغات دولتی": "gov",
+    # دولت
+    "💼 برنامه اشتغال": "state",
+    "🏗️ زیرساخت": "state",
+    "🎓 دانشگاه ملی": "state",
+    # مشکلات
+    "🚨 مبارزه با جرم": "problems",
+    # تورم
+    "📉 کنترل قیمت‌ها": "inflation",
+}
+
+def can_do_action(uid, action):
+    st = get_state(uid)
+    if not st: return False, "❌ خطا"
+    info = INTERNAL_ACTIONS.get(action)
+    if not info: return False, "❌ اقدام نامعتبر"
+    section = ACTION_SECTION.get(action, "misc")
+    # سقف کل
+    count = get_action_count(uid, action)
+    if count >= info["max"]:
+        return False, f"❌ این اقدام حداکثر {info['max']} بار قابل انجام است."
+    # چک کن همین اقدام الان تو صف نباشه
+    in_q = any(p["category"] == "internal_action" and p["model"] == action
+               for p in get_pq(uid))
+    if in_q:
+        return False, "⏳ این اقدام در حال اجراست."
+    # چک کن این نوبت تو این بخش اقدامی نکرده
+    key = f"section_{section}_{uid}"
+    last_section = int(gget(key, "0") or 0)
+    if last_section == st["turn"]:
+        return False, "⚠️ در این نوبت یک اقدام از این بخش انجام دادی. بخش دیگه‌ای یا نوبت بعد."
+    # منابع
+    if not is_admin(uid):
+        if st["money"] < info["money"]:
+            return False, f"❌ نیاز: {info['money']}💰 (داری {fmt(st['money'])})"
+        if st["steel"] < info["steel"]:
+            return False, f"❌ نیاز: {info['steel']}⚙️ (داری {fmt(st['steel'])})"
+    return True, info
+
+async def on_int_action(update, ctx, action):
+    uid = update.effective_user.id
+    ok, data = can_do_action(uid, action)
+    if not ok:
+        await update.message.reply_text(data)
+        return
+    info = data
+    section = ACTION_SECTION.get(action, "misc")
+    if not pay(uid, money=info["money"], steel=info["steel"]):
+        await update.message.reply_text("❌ منابع کافی نیست.")
+        return
+    conn = db()
+    conn.execute("INSERT INTO pq(user_id,category,model,qty,turns) VALUES(?,?,?,?,?)",
+        (uid, "internal_action", action, 1, info["turns"]))
+    conn.commit(); conn.close()
+    gset(f"section_{section}_{uid}", str(get_state(uid)["turn"]))
+    count = get_action_count(uid, action) + 1
+    section_fa = {
+        "people": "امور مردم", "gov": "امور حکومت",
+        "state": "دولت", "problems": "مشکلات", "inflation": "تورم",
+    }.get(section, "سایر")
+    await update.message.reply_text(
+        f"🏛️ *{action}*\n"
+        f"📁 بخش: {section_fa}\n\n"
+        f"🔨 در حال اجرا\n"
+        f"⏱️ {info['turns']} نوبت دیگر\n"
+        f"💰 {info['money']} | ⚙️ {info['steel']}\n"
+        f"📊 رضایت پس از تکمیل: +{info['hap']}\n"
+        f"🔢 اجرای {count} از {info['max']}",
+        reply_markup=kb_main(), parse_mode="Markdown")
+
+# ─── حذف neglect از process_turn ───
+_old_process_turn_neg = process_turn
+
+def process_turn(uid):
+    # چک نکن neglect رو
+    return _old_process_turn_neg(uid)
+
+# ─── hook روتر ───
+_old_on_text_neg = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text_neg(update, ctx)
+    text = update.message.text.strip()
+    if text in INTERNAL_ACTIONS:
+        await on_int_action(update, ctx, text); return
+    return await _old_on_text_neg(update, ctx)
+
+# ─── on_internal بدون هشدار neglect ───
+async def on_internal(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    t = (f"🏛️ *امور کشور*\n"
+         f"😊 رضایت: {int(st['happiness'])}%\n"
+         f"🕵️ نظارت: {st.get('surveillance',20)}%\n")
+    if st.get("protest"):
+        t += f"🔥 اعتراض فعال ({st.get('protest_t',0)} نوبت)"
+    t += ("\n\n💡 *در هر نوبت، از هر بخش یک اقدام می‌تونی بکنی*\n\n"
+          "👇 بخش مورد نظر:")
+    await update.message.reply_text(t,
+        reply_markup=kb_internal_for(uid), parse_mode="Markdown")
+
 if __name__ == "__main__":
     main()
