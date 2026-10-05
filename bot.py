@@ -4375,5 +4375,179 @@ async def on_trade(update, ctx):
         f"💱 چی می‌دی؟",
         reply_markup=kb_trade(), parse_mode="Markdown")
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ — هولوکاست + نازیسم
+# ═══════════════════════════════════════════════════════════════
+
+# ─── نام داینامیک کشور ───
+def country_name(uid):
+    st = get_state(uid)
+    if not st: return "?"
+    c = COUNTRIES[st["country"]]
+    if st["country"] == "germany" and st.get("gov") == "nazism":
+        return "آلمان نازی"
+    return c["n"]
+
+# ─── کیبورد حکومت با نازیسم ───
+def kb_gov():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("👑 پادشاهی مطلقه"),KeyboardButton("👑 پادشاهی مشروطه")],
+        [KeyboardButton("🗳️ جمهوری ریاستی"),KeyboardButton("🗳️ جمهوری پارلمانی")],
+        [KeyboardButton("🚩 فاشیسم"),KeyboardButton("⚫ نازیسم")],
+        [KeyboardButton("🚩 کمونیسم"),KeyboardButton("🚩 تک‌حزبی")],
+        [KeyboardButton("⚙️ دیکتاتوری نظامی"),KeyboardButton("⚙️ دیکتاتوری شخصی")],
+        [KeyboardButton("🕊️ دموکراسی لیبرال"),KeyboardButton("🕊️ دموکراسی اجتماعی")],
+        [KeyboardButton("⚖️ تئوکراسی")]],
+        resize_keyboard=True, one_time_keyboard=True)
+
+async def on_gov_pick(update, ctx):
+    if ctx.user_data.get("wait") != "gov": return
+    text = update.message.text.strip()
+    gmap = {
+        "👑 پادشاهی مطلقه":"absolute_monarchy",
+        "👑 پادشاهی مشروطه":"constitutional_monarchy",
+        "🗳️ جمهوری ریاستی":"presidential_republic",
+        "🗳️ جمهوری پارلمانی":"parliamentary_republic",
+        "🚩 فاشیسم":"fascist",
+        "⚫ نازیسم":"nazism",
+        "🚩 کمونیسم":"communism",
+        "🚩 تک‌حزبی":"single_party",
+        "⚙️ دیکتاتوری نظامی":"military_dictatorship",
+        "⚙️ دیکتاتوری شخصی":"personal_dictatorship",
+        "🕊️ دموکراسی لیبرال":"liberal_democracy",
+        "🕊️ دموکراسی اجتماعی":"social_democracy",
+        "⚖️ تئوکراسی":"theocracy",
+    }
+    if text not in gmap: return
+    uid = update.effective_user.id
+    pset(uid, gov=gmap[text])
+    ctx.user_data["wait"] = None
+    st = get_state(uid)
+    await update.message.reply_text(f"✅\n\n{render_dash(st)}",
+        reply_markup=kb_main(), parse_mode="Markdown")
+
+# ─── render_dash با نام داینامیک ───
+def render_dash(st):
+    c = COUNTRIES[st["country"]]
+    name = "آلمان نازی" if (st["country"] == "germany" and
+                              st.get("gov") == "nazism") else c["n"]
+    return (f"{c['f']} *{name}* — {fmt_date(parse_date(st['game_date']))}\n"
+            f"🔢 نوبت: {st['turn']} / {TOTAL_TURNS}\n"
+            f"━━━━━━━━━━━━━━━━\n"
+            f"💰 {fmt(st['money'])}  🍞 {fmt(st['food'])}  ⚙️ {fmt(st['steel'])}\n"
+            f"🛢️ {fmt(st['oil'])}  🪨 {fmt(st['coal'])}  👥 {fmt(st['manpower'])}\n"
+            f"🪖 سرباز: {fmt(st['soldiers'])}\n"
+            f"😊 {int(st['happiness'])}%  💵 {st['tax']}%")
+
+# ─── render_stats با نام داینامیک ───
+def render_stats(uid):
+    st = get_state(uid); c = COUNTRIES[st["country"]]
+    name = "آلمان نازی" if (st["country"] == "germany" and
+                              st.get("gov") == "nazism") else c["n"]
+    lines = [
+        f"{c['f']} *{name}* — {fmt_date(parse_date(st['game_date']))}",
+        f"🔢 نوبت {st['turn']}/{TOTAL_TURNS}",
+        f"👑 {GOVS.get(st.get('gov'),('?',0))[0]}",
+        f"🆔 `{uid}`",
+        "━━━━━━━━━━━━━━━━",
+        f"💰{fmt(st['money'])} 🍞{fmt(st['food'])} 💧{fmt(st['water'])}",
+        f"⚙️{fmt(st['steel'])} 🛢️{fmt(st['oil'])} 🪨{fmt(st['coal'])}",
+        f"👥{fmt(st['manpower'])} 🪖{fmt(st['soldiers'])}",
+        f"😊{int(st['happiness'])}% 💵{st['tax']}% 🕵️{st.get('surveillance',20)}%",
+    ]
+    for u in get_army(uid):
+        lines.append(f"▪️ {u['model']}: {fmt(u['count'])}")
+    aid = get_user_alliance(uid)
+    if aid:
+        members = [m for m in get_alliance_members(aid) if m != uid]
+        names = []
+        for m in members:
+            ms = get_state(m)
+            if ms: names.append(country_name(m))
+        if names:
+            lines.append(f"🤝 متحدین: {', '.join(names)}")
+    conn = db()
+    naps = conn.execute("SELECT * FROM nap WHERE a=? OR b=?", (uid, uid)).fetchall()
+    conn.close()
+    for n in naps:
+        other = n["b"] if n["a"] == uid else n["a"]
+        lines.append(f"🤐 NAP با {country_name(other)} تا نوبت {n['until_turn']}")
+    conn = db()
+    wars = conn.execute("SELECT * FROM wars WHERE atk_uid=? OR def_uid=?", (uid, uid)).fetchall()
+    conn.close()
+    for w in wars:
+        if w["atk_uid"] == uid:
+            lines.append(f"⚔️ حمله به {country_name(w['def_uid'])}")
+        else:
+            lines.append(f"🛡 دفاع از حمله {country_name(w['atk_uid'])}")
+    return "\n".join(lines)
+
+# ─── کیبورد امور کشور ───
+def kb_internal_for(uid):
+    st = get_state(uid)
+    rows = []
+    if st and st.get("protest"):
+        rows.append([KeyboardButton("🚔 سرکوب اعتراض")])
+    rows.append([KeyboardButton("🕵️ نظارت بر مردم")])
+    if st and st["country"] == "germany" and st.get("gov") == "nazism":
+        rows.append([KeyboardButton("⚫ هولوکاست")])
+    rows.append([KeyboardButton("🔙 منو")])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+async def on_internal(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    t = (f"🏛️ *امور کشور {country_name(uid)}*\n"
+         f"😊 رضایت: {int(st['happiness'])}%\n"
+         f"🕵️ نظارت: {st.get('surveillance',20)}%\n"
+         f"👑 {GOVS.get(st.get('gov'),('?',0))[0]}\n")
+    if st.get("protest"):
+        t += f"\n🔥 *اعتراض فعال* ({st.get('protest_t',0)} نوبت مانده)"
+    await update.message.reply_text(t,
+        reply_markup=kb_internal_for(uid), parse_mode="Markdown")
+
+# ─── هولوکاست ───
+async def on_holocaust(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if st["country"] != "germany" or st.get("gov") != "nazism":
+        await update.message.reply_text("❌ در دسترس نیست.")
+        return
+    if not pay(uid, money=3000):
+        await update.message.reply_text("❌ ۳۰۰۰💰 لازمه.")
+        return
+    sset(uid,
+         money=st["money"]+5000,
+         steel=st["steel"]+200,
+         happiness=max(0, st["happiness"]-20),
+         manpower=int(st["manpower"]*0.9))
+    add_effect(uid, "holocaust", 5)
+    msg = (f"⚫ *هولوکاست*\n\n"
+           f"رژیم نازی برنامه‌ای گسترده علیه یهودیان، کولی‌ها، معلولان و "
+           f"بیماران روانی آغاز کرد. میلیون‌ها انسان به اردوگاه‌های کار "
+           f"اجباری و اتاق‌های گاز فرستاده شدند.\n\n"
+           f"📈 اقتصاد: +۵۰۰۰💰\n"
+           f"📈 فولاد: +۲۰۰⚙️\n"
+           f"📉 رضایت: -۲۰")
+    add_news(st["turn"], "holocaust", msg)
+    try: await ctx.bot.send_message(NEWS_CH, msg, parse_mode="Markdown")
+    except: pass
+    await update.message.reply_text(msg, reply_markup=kb_main(), parse_mode="Markdown")
+
+# ─── hook روتر ───
+_old_on_text6 = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text6(update, ctx)
+    text = update.message.text.strip()
+    uid = update.effective_user.id
+    if text == "⚫ هولوکاست":
+        await on_holocaust(update, ctx); return
+    if text == "🏛️ امور کشور":
+        await on_internal(update, ctx); return
+    return await _old_on_text6(update, ctx)
+
 if __name__ == "__main__":
     main()
