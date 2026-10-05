@@ -5357,5 +5357,16 @@ async def on_text(update, ctx):
                 return
     return await _old_on_text13(update, ctx)
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ — تغییر انگلیس به بریتانیا
+# ═══════════════════════════════════════════════════════════════
+
+# تغییر نام کشور
+COUNTRIES["uk"]["n"] = "بریتانیا"
+
+# بازسازی نقشه‌ها (چون از قبل ساخته شدن)
+CMAP = {f"{c['f']} {c['n']}":k for k,c in COUNTRIES.items()}
+CFA = {c['n']:k for k,c in COUNTRIES.items()}
+
 if __name__ == "__main__":
     main()
