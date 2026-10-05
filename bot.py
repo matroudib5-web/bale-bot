@@ -3015,6 +3015,447 @@ async def on_text(update, ctx):
             return
     return await _old_on_text(update, ctx)
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ ۲ — تغییرات جدید
+# ═══════════════════════════════════════════════════════════════
+
+# ─── ۱. نازیسم به حکومت‌ها ───
+GOVS["nazism"] = ("⚫ نازیسم", -5)
+
+# ─── ۲. کیبورد اصلی بدون سخنرانی ───
+def kb_main():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("💰 اقتصاد"),KeyboardButton("⚔️ ارتش")],
+        [KeyboardButton("🔬 تحقیقات"),KeyboardButton("🏭 کارخونه‌ها")],
+        [KeyboardButton("🤝 دیپلماسی"),KeyboardButton("📦 تجارت")],
+        [KeyboardButton("🎯 حمله"),KeyboardButton("🕵️ جاسوسی")],
+        [KeyboardButton("💵 مالیات"),KeyboardButton("🏛️ امور کشور")],
+        [KeyboardButton("☢️ اتم"),KeyboardButton("📊 آمار کامل")]],resize_keyboard=True)
+
+# ─── ۳. کیبورد ارتش با بمباران ───
+def kb_army():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🪖 سرباز"),KeyboardButton("🛡️ تانک")],
+        [KeyboardButton("✈️ جنگنده"),KeyboardButton("🚀 جت")],
+        [KeyboardButton("🚢 کشتی"),KeyboardButton("🎯 موشک")],
+        [KeyboardButton("💣 بمب‌افکن"),KeyboardButton("🛡️ پدافند")],
+        [KeyboardButton("✈️ بمباران"),KeyboardButton("📋 خدمت اجباری")],
+        [KeyboardButton("🔙 منو")]],resize_keyboard=True)
+
+# ─── ۴. کیبورد امور کشور با سرکوب شرطی + هولوکاست ───
+def kb_internal_for(uid):
+    st = get_state(uid)
+    rows = []
+    if st and st.get("protest"):
+        rows.append([KeyboardButton("🚔 سرکوب اعتراض")])
+    rows.append([KeyboardButton("🕵️ نظارت بر مردم")])
+    # هولوکاست فقط برای آلمان نازی
+    if st and st["country"] == "germany" and st.get("gov") == "nazism":
+        rows.append([KeyboardButton("⚫ هولوکاست")])
+    rows.append([KeyboardButton("🔙 منو")])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+def kb_internal():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🕵️ نظارت بر مردم")],[KeyboardButton("🔙 منو")]],
+        resize_keyboard=True)
+
+# ─── ۵. کیبورد تجارت جدید ───
+def kb_trade():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("💰 پول"),KeyboardButton("🍞 غذا")],
+        [KeyboardButton("💧 آب"),KeyboardButton("⚙️ فولاد")],
+        [KeyboardButton("🛢️ نفت"),KeyboardButton("🪨 زغال")],
+        [KeyboardButton("👥 نیرو"),KeyboardButton("❌ هیچی")],
+        [KeyboardButton("🔙 منو")]],resize_keyboard=True)
+
+# ─── ۶. نمایش تحقیق با جزئیات + زمان ───
+async def on_research_cat(update, ctx, cat):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tree = get_tree(st["country"], cat); researched = get_res(uid, cat)
+    ctx.user_data["screen"] = f"research_{cat}"
+    lines = [f"🔬 *{CAT_N[cat]}*","━━━━━━━━━━━━━━━━"]
+    for i, item in enumerate(tree):
+        name, power, cost, build, steel, oil, desc = item
+        if i == 0:
+            lines.append(f"✅ *{name}* (از اول باز)\n   قدرت: {power} | ⚙️{steel} | 🛢️{oil}")
+        elif name in researched:
+            lines.append(f"✅ *{name}*\n   قدرت: {power} | ⚙️{steel} | 🛢️{oil}")
+        else:
+            lines.append(
+                f"🔒 *{name}*\n"
+                f"   📝 {desc}\n"
+                f"   💪 قدرت: {power}\n"
+                f"   🔬 تحقیق: {cost}💰 + {build} نوبت\n"
+                f"   🏭 ساخت: ⚙️{steel} + 🛢️{oil}"
+            )
+    lines.append("\n👇 روی مدل بزن تا تحقیق کنی")
+    await update.message.reply_text("\n".join(lines),
+        reply_markup=kb_models(st["country"], cat, uid), parse_mode="Markdown")
+
+# ─── ۷. نمایش خرید ارتش با جزئیات ───
+async def on_army_cat(update, ctx, cat):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tree = get_tree(st["country"], cat); researched = get_res(uid, cat)
+    ctx.user_data["screen"] = f"buy_{cat}"
+    lines = [CAT_N[cat],"━━━━━━━━━━━━━━━━"]
+    for i, item in enumerate(tree):
+        name, power, rc, build, steel, oil, desc = item
+        if i == 0 or name in researched:
+            pm = power*20+100
+            lines.append(
+                f"✅ *{name}*\n"
+                f"   📝 {desc}\n"
+                f"   💪 قدرت: {power}\n"
+                f"   💰 هزینه: {pm} + ⚙️{steel} + 🛢️{oil}\n"
+                f"   ⏱️ ساخت: {build} نوبت"
+            )
+        else:
+            lines.append(f"🔒 {name} (تحقیق نشده)")
+    lines.append("\n👇 روی مدل بزن تا تعداد بپرسی")
+    await update.message.reply_text("\n".join(lines),
+        reply_markup=kb_models(st["country"], cat, uid), parse_mode="Markdown")
+
+# ─── ۸. امور کشور جدید ───
+async def on_internal(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    t = (f"🏛️ *امور کشور {COUNTRIES[st['country']]['n']}*\n"
+         f"😊 رضایت: {int(st['happiness'])}%\n"
+         f"🕵️ نظارت: {st.get('surveillance',20)}%\n")
+    if st.get("protest"):
+        t += f"\n🔥 *اعتراض فعال* ({st.get('protest_t',0)} نوبت مانده)"
+    if st["country"] == "germany" and st.get("gov") == "nazism":
+        t += "\n⚫ *رژیم نازی فعال*"
+    await update.message.reply_text(t,
+        reply_markup=kb_internal_for(uid), parse_mode="Markdown")
+
+# ─── ۹. هولوکاست ───
+async def on_holocaust(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if st["country"] != "germany" or st.get("gov") != "nazism":
+        await update.message.reply_text("❌ این گزینه فقط برای آلمان نازی است.")
+        return
+    if not pay(uid, money=3000):
+        await update.message.reply_text("❌ ۳۰۰۰💰 لازمه."); return
+    # اثر: اقتصاد فوق مثبت، رضایت پایین
+    sset(uid,
+         money=st["money"]+5000,
+         steel=st["steel"]+200,
+         happiness=max(0, st["happiness"]-20),
+         manpower=int(st["manpower"]*0.9))
+    add_effect(uid, "holocaust", 5)
+    msg = (f"⚫ *هولوکاست در آلمان*\n\n"
+           f"رژیم نازی برنامه پاکسازی نژادی را آغاز کرد. "
+           f"یهودیان، کولی‌ها، معلولان و بیماران روانی به اردوگاه‌ها "
+           f"منتقل شدند.\n\n"
+           f"💰 اقتصاد: +۵۰۰۰💰\n⚙️ فولاد: +۲۰۰\n😊 رضایت: -۲۰")
+    add_news(st["turn"], "holocaust", msg)
+    try: await ctx.bot.send_message(NEWS_CH, msg, parse_mode="Markdown")
+    except: pass
+    await update.message.reply_text(msg, reply_markup=kb_main(), parse_mode="Markdown")
+
+# ─── ۱۰. بمباران در ارتش ───
+async def on_bomb(update, ctx):
+    await update.message.reply_text("✈️ *عملیات بمباران*\nنوع بمباران 👇",
+        reply_markup=kb_bomb(), parse_mode="Markdown")
+
+# ─── ۱۱. سازمان ملل جدید - نوبتی ───
+UN2 = {"active": False, "turn": 0, "order": [], "idx": 0, "phase": "idle"}
+
+async def start_un(ctx, turn):
+    """هر کشور نوبت خودش حرف می‌زنه"""
+    players = all_players()
+    if not players:
+        return
+    UN2["active"] = True
+    UN2["turn"] = turn
+    UN2["order"] = [p["uid"] for p in players]
+    UN2["idx"] = 0
+    UN2["phase"] = "speech"
+    # اعلام ۵ نوبت قبل انجام شده تو auto_turn
+    announce = (f"🌍 *سازمان ملل — نشست عمومی نوبت {turn}*\n\n"
+                f"جلسه رسمی آغاز شد. هر کشور فرصت محدودی برای سخنرانی دارد.\n"
+                f"ترتیب سخنرانی:\n")
+    for i, p in enumerate(players):
+        c = COUNTRIES[p["c"]]
+        announce += f"{i+1}. {c['f']} {c['n']}\n"
+    # زمان هر نفر
+    n = len(players)
+    per_min = max(1, 25 // n)  # ۲۵ دقیقه تقسیم بر تعداد
+    UN2["per_min"] = per_min
+    announce += f"\n⏱️ هر کشور {per_min} دقیقه فرصت دارد."
+    for p in players:
+        try:
+            await ctx.bot.send_message(p["uid"], announce, parse_mode="Markdown")
+        except: pass
+    add_news(turn, "un", f"🌍 سازمان ملل — نشست عمومی نوبت {turn}")
+    asyncio.create_task(un_cycle(ctx))
+
+async def un_cycle(ctx):
+    players = UN2["order"]
+    per_min = UN2.get("per_min", 2)
+    for i, uid in enumerate(players):
+        if not UN2["active"]: return
+        UN2["idx"] = i
+        st = get_state(uid)
+        if not st:
+            continue
+        c = COUNTRIES[st["country"]]
+        # اعلام نوبت
+        for p in all_players():
+            try:
+                msg = f"🎤 *نوبت {c['f']} {c['n']}*\nزمان: {per_min} دقیقه"
+                if p["uid"] == uid:
+                    msg += "\n\n✏️ حالا می‌تونی حرف بزنی."
+                else:
+                    msg += "\n\nمنتظر باش تا نوبتت برسه."
+                await ctx.bot.send_message(p["uid"], msg, parse_mode="Markdown")
+            except: pass
+        await asyncio.sleep(per_min*60)
+    UN2["active"] = False
+    for p in all_players():
+        try:
+            await ctx.bot.send_message(p["uid"], "🌍 نشست عمومی پایان یافت.",
+                reply_markup=kb_main())
+        except: pass
+
+async def on_un_message(update, ctx, text):
+    if not UN2["active"]: return False
+    uid = update.effective_user.id
+    players = UN2["order"]
+    if not players or UN2["idx"] >= len(players): return False
+    current_uid = players[UN2["idx"]]
+    if uid != current_uid:
+        st = get_state(uid)
+        if st:
+            c = COUNTRIES[st["country"]]
+        await update.message.reply_text(
+            "⏳ نوبت تو نیست. منتظر باش تا نوبتت برسه.")
+        return True
+    # نوبت این کاربر - پیامش برای همه
+    st = get_state(uid)
+    if st:
+        c = COUNTRIES[st["country"]]
+        msg = f"🎤 {c['f']} {c['n']}:\n{text}"
+        for p in all_players():
+            try: await ctx.bot.send_message(p["uid"], msg)
+            except: pass
+    return True
+
+# ─── ۱۲. process_turn با تحقیق زمان‌دار ───
+_old_process_turn = process_turn
+
+def process_turn(uid):
+    st = get_state(uid)
+    if not st: return None
+    c = COUNTRIES[st["country"]]
+    mult = 2.0 if is_vip(uid) else 1.0
+    upd = {}
+    tm = st["tax"] / 20.0
+    upd["money"] = st["money"] + c["bm"]*tm*mult
+    upd["food"] = st["food"] + c["bf"]*mult
+    upd["water"] = st["water"] + c["bf"]*0.5*mult
+    upd["steel"] = st["steel"] + c["bs"]*mult
+    upd["oil"] = st["oil"] + c["bo"]*mult
+    upd["coal"] = st["coal"] + c["bc"]*mult
+    upd["manpower"] = st["manpower"] + 50*mult
+    conn = db()
+    bombs = conn.execute("SELECT * FROM bombing WHERE target_uid=?", (uid,)).fetchall()
+    bf = 0.5 if any(b["effect"]=="factory" for b in bombs) else 1.0
+    br = 0.5 if any(b["effect"]=="refinery" for b in bombs) else 1.0
+    for b in bombs:
+        t = b["turns"] - 1
+        if t <= 0: conn.execute("DELETE FROM bombing WHERE id=?", (b["id"],))
+        else: conn.execute("UPDATE bombing SET turns=? WHERE id=?", (t, b["id"]))
+    conn.commit(); conn.close()
+    for f in get_fact(uid):
+        p = PROJECTS.get(f["fkey"])
+        if p and p["eff"] in ("steel","oil","coal","food","water","money"):
+            r = p["eff"]
+            fac = 1.0
+            if r == "oil": fac = br
+            if r in ("steel","coal"): fac = bf
+            upd[r] = upd.get(r, st.get(r, 0)) + p["v"]*f["level"]*mult*fac
+    hap = st["happiness"] + calc_hap_delta(uid, st)
+    hap = max(0, min(100, hap))
+    upd["happiness"] = hap
+    upd.update(check_protest(uid, st))
+    if st.get("suppress_cd", 0) > 0:
+        nc = st["suppress_cd"] - 1
+        upd["suppress_cd"] = nc
+        if nc == 0:
+            upd["happiness"] = max(0, upd.get("happiness", hap) - 5)
+    conn = db()
+    for it in conn.execute("SELECT * FROM items WHERE turns_left>0").fetchall():
+        t = it["turns_left"] - 1
+        if t <= 0: conn.execute("DELETE FROM items WHERE id=?", (it["id"],))
+        else: conn.execute("UPDATE items SET turns_left=? WHERE id=?", (t, it["id"]))
+    conn.commit(); conn.close()
+    conn = db()
+    for item in get_pq(uid):
+        t = item["turns"] - 1
+        if t <= 0:
+            # تحقیق زمان‌دار
+            if item["category"] == "research_pending":
+                parts = item["model"].split(":", 1)
+                if len(parts) == 2:
+                    mark_res(uid, parts[0], parts[1])
+            else:
+                add_army(uid, item["category"], item["model"], item["qty"])
+            conn.execute("DELETE FROM pq WHERE id=?", (item["id"],))
+        else:
+            conn.execute("UPDATE pq SET turns=? WHERE id=?", (t, item["id"]))
+    for p in get_projq(uid):
+        t = p["turns"] - 1
+        if t <= 0:
+            mark_proj(uid, p["pkey"])
+            conn.execute("DELETE FROM projq WHERE id=?", (p["id"],))
+        else:
+            conn.execute("UPDATE projq SET turns=? WHERE id=?", (t, p["id"]))
+    for s in conn.execute("SELECT * FROM spies WHERE from_id=? AND status='pending'",
+        (uid,)).fetchall():
+        t = s["turns"] - 1
+        if t <= 0:
+            resolve_spy(uid, s["to_id"])
+            conn.execute("UPDATE spies SET status='done' WHERE id=?", (s["id"],))
+        else:
+            conn.execute("UPDATE spies SET turns=? WHERE id=?", (t, s["id"]))
+    conn.commit(); conn.close()
+    if st.get("atomic_t", 0) > 0:
+        t = st["atomic_t"] - 1
+        if t <= 0:
+            ns = st.get("atomic_stage", 0) + 1
+            upd["atomic_stage"] = ns
+            upd["atomic_t"] = 0
+            if ns >= 3:
+                upd["atomic_bombs"] = st.get("atomic_bombs", 0) + 1
+        else:
+            upd["atomic_t"] = t
+    nd = next_date(st["game_date"])
+    upd["game_date"] = nd
+    upd["turn"] = st["turn"] + 1
+    upd["last_turn"] = datetime.utcnow().isoformat()
+    ev = []
+    if nd in EVENTS:
+        ev.append(EVENTS[nd])
+        add_news(st["turn"], "hist", EVENTS[nd])
+    sset(uid, **upd)
+    return {"turn": st["turn"]+1, "date": nd, "ev": ev}
+
+# ─── ۱۳. اتم مخفی قبل نوبت ۱۰۷۷ ───
+async def on_atomic(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    # فقط ادمین‌ها
+    if not is_admin(uid):
+        if st["turn"] < ATOMIC_UNLOCK:
+            await update.message.reply_text("🔒 این قابلیت هنوز باز نشده."); return
+        if st["country"] not in ["germany","usa"] and gget("atomic_used") != "true":
+            await update.message.reply_text("🔒 این پروژه در دسترس نیست."); return
+    stage = st.get("atomic_stage", 0)
+    if stage >= 3:
+        await update.message.reply_text(
+            f"☢️ *بمب اتمی آماده!*\nتعداد بمب: {st.get('atomic_bombs',0)}\n\n"
+            f"برای استفاده: آیتم `بمب اتم` (فقط ادمین‌ها)",
+            reply_markup=kb_main(), parse_mode="Markdown"); return
+    s = ATOMIC_STAGES[stage]
+    await update.message.reply_text(
+        f"☢️ *پروژه اتمی*\nمرحله {stage}/3\n{s['n']}\n"
+        f"⏱️ {s['t']} نوبت\n💰{s['m']} ⚙️{s['s']} 🛢️{s['o']}",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("☢️ شروع مرحله")],[KeyboardButton("🔙 منو")]],
+            resize_keyboard=True), parse_mode="Markdown")
+
+# ─── ۱۴. نمایش اطلاعات با آیدی ادمین ───
+def render_stats(uid):
+    st = get_state(uid); c = COUNTRIES[st["country"]]
+    lines = [f"{c['f']} *{c['n']}* — {fmt_date(parse_date(st['game_date']))}",
+        f"🔢 {st['turn']}/{TOTAL_TURNS}",
+        f"👑 {GOVS.get(st.get('gov'),('?',0))[0]}",
+        f"🆔 `{uid}`",
+        "━━━━━━━━━━━━━━━━",
+        f"💰{fmt(st['money'])} 🍞{fmt(st['food'])} 💧{fmt(st['water'])}",
+        f"⚙️{fmt(st['steel'])} 🛢️{fmt(st['oil'])} 🪨{fmt(st['coal'])}",
+        f"👥{fmt(st['manpower'])} 🪖{fmt(st['soldiers'])}",
+        f"😊{int(st['happiness'])}% 💵{st['tax']}% 🕵️{st.get('surveillance',20)}%"]
+    for u in get_army(uid):
+        lines.append(f"▪️ {u['model']}: {fmt(u['count'])}")
+    return "\n".join(lines)
+
+# ─── ۱۵. on_text نهایی ───
+_old_on_text2 = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text2(update, ctx)
+    text = update.message.text.strip()
+    uid = update.effective_user.id
+    st = get_state(uid)
+    # آتم مخفی
+    if text == "☢️ اتم":
+        await on_atomic(update, ctx); return
+    # سرکوب شرطی
+    if text == "🚔 سرکوب اعتراض":
+        if not st or not st.get("protest"):
+            await update.message.reply_text("❌ اعتراضی وجود ندارد.")
+            return
+        await on_suppress(update, ctx); return
+    # هولوکاست
+    if text == "⚫ هولوکاست":
+        await on_holocaust(update, ctx); return
+    # امور کشور با کیبورد جدید
+    if text == "🏛️ امور کشور":
+        await on_internal(update, ctx); return
+    # بمباران در ارتش
+    if text == "✈️ بمباران":
+        if not st:
+            return
+        await on_bomb(update, ctx); return
+    # پروژه‌ها حذف شده
+    if text == "🏗️ پروژه‌ها":
+        await update.message.reply_text(
+            "ℹ️ پروژه‌ها حذف شده‌اند. به بخش‌های مربوطه منتقل شدند:\n"
+            "🏭 صنعت/انرژی/کشاورزی → کارخونه‌ها\n"
+            "🎖️ نظامی → ارتش\n"
+            "🏥 اجتماعی/📜 سیاسی → امور کشور\n"
+            "🛣️ حمل‌ونقل → در حال حاضر موجود نیست")
+        return
+    # دستورات قدیمی پروژه
+    if text in ("🏭 صنعت","⚡ انرژی","🎖️ نظامی","🏥 اجتماعی",
+                "🌾 کشاورزی","📜 سیاسی","🛣️ حمل‌ونقل"):
+        await update.message.reply_text(
+            "ℹ️ این بخش ادغام شده. از کارخونه‌ها یا ارتش استفاده کن.")
+        return
+    # سخنرانی حذف شده
+    if text == "📢 سخنرانی":
+        await update.message.reply_text("ℹ️ سخنرانی حذف شد. خودکار انجام می‌شود.")
+        return
+    # UN چک
+    if await on_un_message(update, ctx, text): return
+    return await _old_on_text2(update, ctx)
+
+# ─── ۱۶. auto_turn جدید با هشدار UN ───
+_old_auto_turn = auto_turn
+
+async def auto_turn(ctx):
+    if gget("season_ended") == "true": return
+    nt = int(gget("turn","1")) + 1
+    # هشدار ۵ نوبت قبل UN
+    if nt % UN_INTERVAL == 5 and nt > 0:
+        next_un = nt + 5
+        for p in all_players():
+            try:
+                await ctx.bot.send_message(p["uid"],
+                    f"🌍 *اطلاعیه*\n\n۵ نوبت دیگر (نوبت {next_un}) "
+                    f"نشست عمومی سازمان ملل برگزار می‌شود. آماده باش.")
+            except: pass
+    # اجرای auto_turn قدیمی
+    await _old_auto_turn(ctx)
+
 if __name__ == "__main__":
     main()
-    
