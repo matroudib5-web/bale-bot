@@ -3457,5 +3457,389 @@ async def auto_turn(ctx):
     # اجرای auto_turn قدیمی
     await _old_auto_turn(ctx)
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ ۳ — فیکس نهایی
+# ═══════════════════════════════════════════════════════════════
+
+# ─── ۱. نازیسم در کیبورد انتخاب حکومت ───
+def kb_gov():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("👑 پادشاهی مطلقه"),KeyboardButton("👑 پادشاهی مشروطه")],
+        [KeyboardButton("🗳️ جمهوری ریاستی"),KeyboardButton("🗳️ جمهوری پارلمانی")],
+        [KeyboardButton("🚩 فاشیسم"),KeyboardButton("⚫ نازیسم")],
+        [KeyboardButton("🚩 کمونیسم"),KeyboardButton("🚩 تک‌حزبی")],
+        [KeyboardButton("⚙️ دیکتاتوری نظامی"),KeyboardButton("⚙️ دیکتاتوری شخصی")],
+        [KeyboardButton("🕊️ دموکراسی لیبرال"),KeyboardButton("🕊️ دموکراسی اجتماعی")],
+        [KeyboardButton("⚖️ تئوکراسی")]],
+        resize_keyboard=True,one_time_keyboard=True)
+
+# ─── ۲. on_gov_pick با نازیسم ───
+async def on_gov_pick(update, ctx):
+    if ctx.user_data.get("wait") != "gov": return
+    text = update.message.text.strip()
+    gmap = {
+        "👑 پادشاهی مطلقه":"absolute_monarchy",
+        "👑 پادشاهی مشروطه":"constitutional_monarchy",
+        "🗳️ جمهوری ریاستی":"presidential_republic",
+        "🗳️ جمهوری پارلمانی":"parliamentary_republic",
+        "🚩 فاشیسم":"fascist",
+        "⚫ نازیسم":"nazism",
+        "🚩 کمونیسم":"communism",
+        "🚩 تک‌حزبی":"single_party",
+        "⚙️ دیکتاتوری نظامی":"military_dictatorship",
+        "⚙️ دیکتاتوری شخصی":"personal_dictatorship",
+        "🕊️ دموکراسی لیبرال":"liberal_democracy",
+        "🕊️ دموکراسی اجتماعی":"social_democracy",
+        "⚖️ تئوکراسی":"theocracy",
+    }
+    if text not in gmap: return
+    uid = update.effective_user.id
+    pset(uid, gov=gmap[text])
+    ctx.user_data["wait"] = None
+    st = get_state(uid)
+    extra = ""
+    if gmap[text] == "nazism":
+        extra = "\n\n⚫ *رژیم نازی*\nاز منوی امور کشور، گزینه هولوکاست فعال شد."
+    await update.message.reply_text(f"✅{extra}\n\n{render_dash(st)}",
+        reply_markup=kb_main(), parse_mode="Markdown")
+
+# ─── ۳. اتم: هیچ‌کس (حتی ادمین) قبل نوبت ۱۰۷۷ نمی‌تونه ───
+async def on_atomic(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    # ⛔ هیچ استثنایی نیست — حتی ادمین
+    if st["turn"] < ATOMIC_UNLOCK:
+        await update.message.reply_text(
+            f"🔒 *پروژه اتمی*\n\nهنوز باز نشده.\n"
+            f"باز شدن: نوبت {ATOMIC_UNLOCK}\n"
+            f"الان: نوبت {st['turn']}\n"
+            f"مانده: {ATOMIC_UNLOCK - st['turn']} نوبت",
+            parse_mode="Markdown")
+        return
+    # فقط آلمان و آمریکا
+    if st["country"] not in ["germany","usa"] and gget("atomic_used") != "true":
+        await update.message.reply_text("🔒 این پروژه در دسترس نیست.")
+        return
+    stage = st.get("atomic_stage", 0)
+    if stage >= 3:
+        await update.message.reply_text(
+            f"☢️ *بمب اتمی آماده!*\nتعداد بمب: {st.get('atomic_bombs',0)}\n\n"
+            f"برای استفاده: آیتم `بمب اتم` (فقط ادمین‌ها)",
+            reply_markup=kb_main(), parse_mode="Markdown")
+        return
+    s = ATOMIC_STAGES[stage]
+    await update.message.reply_text(
+        f"☢️ *پروژه اتمی*\nمرحله {stage}/3\n{s['n']}\n"
+        f"⏱️ {s['t']} نوبت\n💰{s['m']} ⚙️{s['s']} 🛢️{s['o']}",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("☢️ شروع مرحله")],[KeyboardButton("🔙 منو")]],
+            resize_keyboard=True), parse_mode="Markdown")
+
+# ─── ۴. تحقیق زمان‌دار ───
+_old_on_text3 = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text3(update, ctx)
+    text = update.message.text.strip()
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st:
+        return await _old_on_text3(update, ctx)
+    screen = ctx.user_data.get("screen", "menu")
+    # ─── فیکس تحقیق زمان‌دار ───
+    if screen.startswith("research_"):
+        cat = screen.split("_", 1)[1]
+        tree = get_tree(st["country"], cat)
+        researched = get_res(uid, cat)
+        # اگه داره تحقیق می‌کنه
+        for i, item in enumerate(tree):
+            if len(item) < 7: continue
+            name, power, cost, build, steel, oil, desc = item
+            if name == text:
+                if i == 0:
+                    await update.message.reply_text("این مدل از اول باز است.")
+                    return
+                if name in researched:
+                    await update.message.reply_text("قبلاً تحقیق شده.")
+                    return
+                # چک نکنه تو صف هست
+                in_q = any(p["category"] == "research_pending" and
+                           p["model"] == f"{cat}:{name}" for p in get_pq(uid))
+                if in_q:
+                    await update.message.reply_text("این مدل در حال تحقیق است.")
+                    return
+                if not pay(uid, money=cost):
+                    await update.message.reply_text(f"❌ نیاز: {cost}💰")
+                    return
+                # صف تحقیق با زمان
+                conn = db()
+                conn.execute("INSERT INTO pq(user_id,category,model,qty,turns) VALUES(?,?,?,?,?)",
+                    (uid, "research_pending", f"{cat}:{name}", 1, build))
+                conn.commit(); conn.close()
+                await update.message.reply_text(
+                    f"🔬 *{name}* در صف تحقیق!\n"
+                    f"⏱️ زمان: {build} نوبت\n"
+                    f"💰 هزینه: {cost}",
+                    reply_markup=kb_main(), parse_mode="Markdown")
+                return
+    # ─── فیکس کارخونه: زمان‌دار ───
+    if screen == "fact":
+        for f in get_fact(uid):
+            p = PROJECTS.get(f["fkey"], {})
+            if p.get("n") == text:
+                lvl = f["level"]
+                if lvl >= 5:
+                    await update.message.reply_text("🏆 حداکثر سطح.")
+                    return
+                costs = {1:500, 2:1200, 3:2500, 4:5000}
+                cost = costs.get(lvl, 0)
+                # چک زمان
+                in_q = any(q["pkey"] == f"fact_{f['fkey']}_{lvl}" for q in get_projq(uid))
+                if in_q:
+                    await update.message.reply_text("این ارتقا در حال ساخت است.")
+                    return
+                if not pay(uid, money=cost):
+                    await update.message.reply_text(f"❌ نیاز: {cost}💰")
+                    return
+                # صف ارتقا با زمان (۳ نوبت)
+                add_projq(uid, f"fact_{f['fkey']}_{lvl}", 3)
+                await update.message.reply_text(
+                    f"⚙️ ارتقای {p.get('n',f['fkey'])} در صف\n⏱️ زمان: ۳ نوبت\n💰 هزینه: {cost}",
+                    reply_markup=kb_main())
+                return
+    # ─── فیکس خدمت اجباری: زمان‌دار ───
+    if text == "📋 خدمت اجباری":
+        if not pay(uid, money=1000):
+            await update.message.reply_text("❌ ۱۰۰۰💰 لازمه.")
+            return
+        add_projq(uid, f"conscription_{uid}", 2)
+        await update.message.reply_text(
+            "📋 خدمت اجباری در صف (۲ نوبت)\n"
+            "پس از ۲ نوبت: -۱۵ رضایت، +۵۰۰ نیرو",
+            reply_markup=kb_main())
+        return
+    # ─── فیکس بمباران: زمان‌دار ───
+    if text in ("🏭 بمباران کارخونه","🔧 بمباران تجهیزات",
+                "💀 ترور فرمانده","🛢️ بمباران پالایشگاه"):
+        ctx.user_data["bomb_pending"] = text
+        ctx.user_data["wait"] = "bomb_target"
+        await update.message.reply_text("🎯 کشور هدف 👇", reply_markup=kb_targets(uid))
+        return
+    # ادامه روتر اصلی
+    return await _old_on_text3(update, ctx)
+
+# ─── ۵. on_bomb_target زمان‌دار ───
+async def on_bomb_target(update, ctx):
+    if ctx.user_data.get("wait") != "bomb_target": return
+    text = update.message.text.strip()
+    if text not in CMAP: return
+    tk = CMAP[text]
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tu = find_country(tk)
+    if not tu:
+        await update.message.reply_text("❌"); return
+    # ذخیره در صف با زمان ۱ نوبت
+    bomb_kind_map = {
+        "🏭 بمباران کارخونه":"factory",
+        "🔧 بمباران تجهیزات":"equip",
+        "💀 ترور فرمانده":"assassin",
+        "🛢️ بمباران پالایشگاه":"refinery",
+    }
+    btext = ctx.user_data.get("bomb_pending")
+    kind = bomb_kind_map.get(btext, "factory")
+    # هزینه
+    if not pay(uid, money=500, oil=30):
+        await update.message.reply_text("❌ نیاز: ۵۰۰💰 + ۳۰🛢️")
+        ctx.user_data["wait"]=None; return
+    # صف بمباران
+    conn = db()
+    conn.execute("INSERT INTO pq(user_id,category,model,qty,turns) VALUES(?,?,?,?,?)",
+        (uid, "bomb_pending", f"{kind}:{tu}", 1, 1))
+    conn.commit(); conn.close()
+    await update.message.reply_text(
+        f"✈️ بمباران {COUNTRIES[tk]['n']} در صف\n⏱️ زمان: ۱ نوبت",
+        reply_markup=kb_main())
+    ctx.user_data["wait"]=None
+    ctx.user_data["bomb_pending"]=None
+
+# ─── ۶. کیبورد امور کشور با هولوکاست ───
+def kb_internal_for(uid):
+    st = get_state(uid)
+    rows = []
+    if st and st.get("protest"):
+        rows.append([KeyboardButton("🚔 سرکوب اعتراض")])
+    rows.append([KeyboardButton("🕵️ نظارت بر مردم")])
+    if st and st["country"] == "germany" and st.get("gov") == "nazism":
+        rows.append([KeyboardButton("⚫ هولوکاست")])
+    rows.append([KeyboardButton("🔙 منو")])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+async def on_internal(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    t = (f"🏛️ *امور کشور {COUNTRIES[st['country']]['n']}*\n"
+         f"😊 رضایت: {int(st['happiness'])}%\n"
+         f"🕵️ نظارت: {st.get('surveillance',20)}%\n"
+         f"👑 {GOVS.get(st.get('gov'),('?',0))[0]}\n")
+    if st.get("protest"):
+        t += f"\n🔥 *اعتراض فعال* ({st.get('protest_t',0)} نوبت مانده)"
+    if st["country"] == "germany" and st.get("gov") == "nazism":
+        t += "\n⚫ *رژیم نازی فعال — هولوکاست در دسترس*"
+    await update.message.reply_text(t,
+        reply_markup=kb_internal_for(uid), parse_mode="Markdown")
+
+# ─── ۷. هولوکاست ───
+async def on_holocaust(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if st["country"] != "germany" or st.get("gov") != "nazism":
+        await update.message.reply_text("❌ این گزینه فقط برای آلمان نازی است.")
+        return
+    if not pay(uid, money=3000):
+        await update.message.reply_text("❌ ۳۰۰۰💰 لازمه.")
+        return
+    sset(uid,
+         money=st["money"]+5000,
+         steel=st["steel"]+200,
+         happiness=max(0, st["happiness"]-20),
+         manpower=int(st["manpower"]*0.9))
+    add_effect(uid, "holocaust", 5)
+    msg = (f"⚫ *هولوکاست در آلمان*\n\n"
+           f"رژیم نازی برنامه پاکسازی نژادی را آغاز کرد. یهودیان، کولی‌ها، "
+           f"معلولان و بیماران روانی به اردوگاه‌های کار اجباری منتقل شدند.\n\n"
+           f"💰 اقتصاد: +۵۰۰۰\n⚙️ فولاد: +۲۰۰\n😊 رضایت: -۲۰")
+    add_news(st["turn"], "holocaust", msg)
+    try: await ctx.bot.send_message(NEWS_CH, msg, parse_mode="Markdown")
+    except: pass
+    await update.message.reply_text(msg, reply_markup=kb_main(), parse_mode="Markdown")
+
+# ─── ۸. fیکس: پردازش تحقیقات و بمباران تو process_turn ───
+_old_process_turn2 = process_turn
+
+def process_turn(uid):
+    st = get_state(uid)
+    if not st: return None
+    c = COUNTRIES[st["country"]]
+    mult = 2.0 if is_vip(uid) else 1.0
+    upd = {}
+    tm = st["tax"] / 20.0
+    upd["money"] = st["money"] + c["bm"]*tm*mult
+    upd["food"] = st["food"] + c["bf"]*mult
+    upd["water"] = st["water"] + c["bf"]*0.5*mult
+    upd["steel"] = st["steel"] + c["bs"]*mult
+    upd["oil"] = st["oil"] + c["bo"]*mult
+    upd["coal"] = st["coal"] + c["bc"]*mult
+    upd["manpower"] = st["manpower"] + 50*mult
+    conn = db()
+    bombs = conn.execute("SELECT * FROM bombing WHERE target_uid=?", (uid,)).fetchall()
+    bf = 0.5 if any(b["effect"]=="factory" for b in bombs) else 1.0
+    br = 0.5 if any(b["effect"]=="refinery" for b in bombs) else 1.0
+    for b in bombs:
+        t = b["turns"] - 1
+        if t <= 0: conn.execute("DELETE FROM bombing WHERE id=?", (b["id"],))
+        else: conn.execute("UPDATE bombing SET turns=? WHERE id=?", (t, b["id"]))
+    conn.commit(); conn.close()
+    for f in get_fact(uid):
+        p = PROJECTS.get(f["fkey"])
+        if p and p["eff"] in ("steel","oil","coal","food","water","money"):
+            r = p["eff"]
+            fac = 1.0
+            if r == "oil": fac = br
+            if r in ("steel","coal"): fac = bf
+            upd[r] = upd.get(r, st.get(r, 0)) + p["v"]*f["level"]*mult*fac
+    hap = st["happiness"] + calc_hap_delta(uid, st)
+    hap = max(0, min(100, hap))
+    upd["happiness"] = hap
+    upd.update(check_protest(uid, st))
+    if st.get("suppress_cd", 0) > 0:
+        nc = st["suppress_cd"] - 1
+        upd["suppress_cd"] = nc
+        if nc == 0:
+            upd["happiness"] = max(0, upd.get("happiness", hap) - 5)
+    conn = db()
+    for it in conn.execute("SELECT * FROM items WHERE turns_left>0").fetchall():
+        t = it["turns_left"] - 1
+        if t <= 0: conn.execute("DELETE FROM items WHERE id=?", (it["id"],))
+        else: conn.execute("UPDATE items SET turns_left=? WHERE id=?", (t, it["id"]))
+    conn.commit(); conn.close()
+    # صف تولید + تحقیق زمان‌دار
+    conn = db()
+    for item in get_pq(uid):
+        t = item["turns"] - 1
+        if t <= 0:
+            if item["category"] == "research_pending":
+                parts = item["model"].split(":", 1)
+                if len(parts) == 2:
+                    mark_res(uid, parts[0], parts[1])
+                    add_news(st["turn"], "research",
+                        f"🔬 {parts[1]} در {c['n']} تحقیق شد!")
+            elif item["category"] == "bomb_pending":
+                parts = item["model"].split(":", 1)
+                if len(parts) == 2:
+                    kind = parts[0]
+                    try: target_uid = int(parts[1])
+                    except: target_uid = 0
+                    if target_uid:
+                        do_bombing(uid, target_uid, kind)
+            else:
+                add_army(uid, item["category"], item["model"], item["qty"])
+            conn.execute("DELETE FROM pq WHERE id=?", (item["id"],))
+        else:
+            conn.execute("UPDATE pq SET turns=? WHERE id=?", (t, item["id"]))
+    # صف پروژه (ارتقا کارخونه + خدمت اجباری)
+    for p in get_projq(uid):
+        t = p["turns"] - 1
+        if t <= 0:
+            pk = p["pkey"]
+            if pk.startswith("fact_"):
+                parts = pk.split("_")
+                if len(parts) == 3:
+                    fkey = parts[1]
+                    conn.execute("UPDATE factories SET level=level+1 WHERE user_id=? AND fkey=?",
+                        (uid, fkey))
+            elif pk.startswith("conscription_"):
+                st2 = get_state(uid)
+                if st2:
+                    sset(uid, happiness=max(0, st2["happiness"]-15),
+                         manpower=st2["manpower"]+500)
+            else:
+                mark_proj(uid, pk)
+            conn.execute("DELETE FROM projq WHERE id=?", (p["id"],))
+        else:
+            conn.execute("UPDATE projq SET turns=? WHERE id=?", (t, p["id"]))
+    for s in conn.execute("SELECT * FROM spies WHERE from_id=? AND status='pending'",
+        (uid,)).fetchall():
+        t = s["turns"] - 1
+        if t <= 0:
+            resolve_spy(uid, s["to_id"])
+            conn.execute("UPDATE spies SET status='done' WHERE id=?", (s["id"],))
+        else:
+            conn.execute("UPDATE spies SET turns=? WHERE id=?", (t, s["id"]))
+    conn.commit(); conn.close()
+    if st.get("atomic_t", 0) > 0:
+        t = st["atomic_t"] - 1
+        if t <= 0:
+            ns = st.get("atomic_stage", 0) + 1
+            upd["atomic_stage"] = ns
+            upd["atomic_t"] = 0
+            if ns >= 3:
+                upd["atomic_bombs"] = st.get("atomic_bombs", 0) + 1
+        else:
+            upd["atomic_t"] = t
+    nd = next_date(st["game_date"])
+    upd["game_date"] = nd
+    upd["turn"] = st["turn"] + 1
+    upd["last_turn"] = datetime.utcnow().isoformat()
+    ev = []
+    if nd in EVENTS:
+        ev.append(EVENTS[nd])
+        add_news(st["turn"], "hist", EVENTS[nd])
+    sset(uid, **upd)
+    return {"turn": st["turn"]+1, "date": nd, "ev": ev}
+
 if __name__ == "__main__":
     main()
