@@ -5268,5 +5268,94 @@ async def on_inflation(update, ctx):
             [KeyboardButton("🔙 منو")],
         ], resize_keyboard=True), parse_mode="Markdown")
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ — فیکس زنجیره تحقیقات
+# ═══════════════════════════════════════════════════════════════
+
+# مدل اول (index 0) همیشه باز — چک زنجیره فقط از index 1
+def research_chain_ok(uid, cat, idx, tree, researched):
+    """اگه idx == 0 → همه چی اوکیه (مدل اول از اول بازه)"""
+    if idx <= 0:
+        return True, None
+    # از index 1 چک کن تا idx-1
+    for j in range(1, idx):
+        if tree[j][0] not in researched:
+            return False, tree[j][0]
+    return True, None
+
+async def on_research_cat(update, ctx, cat):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tree = get_tree(st["country"], cat); researched = get_res(uid, cat)
+    ctx.user_data["screen"] = f"research_{cat}"
+    lines = [f"🔬 *{CAT_N[cat]}*","━━━━━━━━━━━━━━━━"]
+    for i, item in enumerate(tree):
+        name, power, cost, build, steel, oil, desc = item
+        if i == 0:
+            lines.append(f"✅ *{name}* (از اول باز)")
+            continue
+        if name in researched:
+            lines.append(f"✅ *{name}* — قدرت {power}")
+            continue
+        # چک زنجیره (فقط از index 1)
+        ok, need = research_chain_ok(uid, cat, i, tree, researched)
+        if not ok:
+            lines.append(f"🔒 *{name}* (ابتدا {need} را تحقیق کن)")
+        else:
+            lines.append(
+                f"🔓 *{name}*\n"
+                f"   📝 {desc}\n"
+                f"   💪 {power} | 🔬 {cost}💰+{build}نوبت | ⚙️{steel} 🛢️{oil}"
+            )
+    lines.append("\n👇 روی مدل بزن")
+    await update.message.reply_text("\n".join(lines),
+        reply_markup=kb_models(st["country"], cat, uid), parse_mode="Markdown")
+
+# ─── hook روتر برای پیک تحقیقات ───
+_old_on_text13 = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text13(update, ctx)
+    text = update.message.text.strip()
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st:
+        return await _old_on_text13(update, ctx)
+    screen = ctx.user_data.get("screen", "menu")
+    if screen.startswith("research_"):
+        cat = screen.split("_", 1)[1]
+        tree = get_tree(st["country"], cat)
+        researched = get_res(uid, cat)
+        for i, item in enumerate(tree):
+            if len(item) < 7: continue
+            name, power, cost, build, steel, oil, desc = item
+            if name == text:
+                if i == 0:
+                    await update.message.reply_text("این مدل از اول باز است.")
+                    return
+                if name in researched:
+                    await update.message.reply_text("قبلاً تحقیق شده.")
+                    return
+                # چک زنجیره (فقط از index 1)
+                ok, need = research_chain_ok(uid, cat, i, tree, researched)
+                if not ok:
+                    await update.message.reply_text(
+                        f"🔒 ابتدا باید *{need}* را تحقیق کنی.",
+                        parse_mode="Markdown")
+                    return
+                if not pay(uid, money=cost):
+                    await update.message.reply_text(f"❌ نیاز: {cost}💰")
+                    return
+                conn = db()
+                conn.execute("INSERT INTO pq(user_id,category,model,qty,turns) VALUES(?,?,?,?,?)",
+                    (uid, "research_pending", f"{cat}:{name}", 1, build))
+                conn.commit(); conn.close()
+                await update.message.reply_text(
+                    f"🔬 *{name}* در صف تحقیق!\n⏱️ {build} نوبت\n💰 {cost}",
+                    reply_markup=kb_main(), parse_mode="Markdown")
+                return
+    return await _old_on_text13(update, ctx)
+
 if __name__ == "__main__":
     main()
