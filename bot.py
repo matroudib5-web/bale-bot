@@ -4549,5 +4549,469 @@ async def on_text(update, ctx):
         await on_internal(update, ctx); return
     return await _old_on_text6(update, ctx)
 
+# ═══════════════════════════════════════════════════════════════
+#  🩹 پچ کامل — همه تغییرات جدید
+# ═══════════════════════════════════════════════════════════════
+
+# ─── ۱. کیبورد اصلی: حذف اقتصاد ───
+def kb_main():
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("⚔️ ارتش"),KeyboardButton("🔬 تحقیقات")],
+        [KeyboardButton("🏭 کارخونه‌ها"),KeyboardButton("🤝 دیپلماسی")],
+        [KeyboardButton("📦 تجارت"),KeyboardButton("🎯 حمله")],
+        [KeyboardButton("🕵️ جاسوسی"),KeyboardButton("💵 مالیات")],
+        [KeyboardButton("🏛️ امور کشور"),KeyboardButton("📊 آمار کامل")],
+    ],resize_keyboard=True)
+
+# ─── ۲. مالیات ۱-۱۰۰ ───
+async def on_tax(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    ctx.user_data["wait"] = "tax"
+    c = COUNTRIES[st["country"]]
+    cur = int(c["bm"] * (st["tax"]/20))
+    await update.message.reply_text(
+        f"💵 *مالیات*\n\n"
+        f"📊 فعلی: {st['tax']}%\n"
+        f"📈 درآمد در نوبت: +{fmt(cur)}\n"
+        f"😊 رضایت: {int(st['happiness'])}%\n\n"
+        f"عددی از ۱ تا ۱۰۰ بفرست.\n"
+        f"هرچه بیشتر → پول بیشتر، رضایت کمتر، خطر اعتراض بالاتر.",
+        reply_markup=kb_back(), parse_mode="Markdown")
+
+async def on_tax_input(update, ctx):
+    if ctx.user_data.get("wait") != "tax": return False
+    text = update.message.text.strip().replace("%","").strip()
+    try:
+        v = int(text)
+        if not (1 <= v <= 100): raise ValueError
+    except:
+        await update.message.reply_text("❌ فرمت نامعتبر. عدد ۱ تا ۱۰۰ بفرست.")
+        return True
+    uid = update.effective_user.id
+    st = get_state(uid)
+    sset(uid, tax=v)
+    c = COUNTRIES[st["country"]]
+    new_income = int(c["bm"] * (v/20))
+    ctx.user_data["wait"] = None
+    st2 = get_state(uid)
+    warn = ""
+    if v >= 70:
+        warn = "\n⚠️ مالیات بسیار بالا! خطر اعتراض جدی."
+    elif v >= 50:
+        warn = "\n⚠️ مالیات بالا — نارضایتی در راه."
+    await update.message.reply_text(
+        f"✅ مالیات: {v}%\n"
+        f"📈 درآمد در نوبت: +{fmt(new_income)}{warn}\n\n"
+        f"{render_dash(st2)}",
+        reply_markup=kb_main(), parse_mode="Markdown")
+    return True
+
+# ─── ۳. تحقیقات: گیت زنجیره‌ای ───
+def research_chain_ok(uid, cat, idx, tree, researched):
+    """فقط اگه همه قبلی‌ها تحقیق شده باشن"""
+    for j in range(idx):
+        if tree[j][0] not in researched:
+            return False, tree[j][0]
+    return True, None
+
+async def on_research_cat(update, ctx, cat):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    tree = get_tree(st["country"], cat); researched = get_res(uid, cat)
+    ctx.user_data["screen"] = f"research_{cat}"
+    lines = [f"🔬 *{CAT_N[cat]}*","━━━━━━━━━━━━━━━━"]
+    for i, item in enumerate(tree):
+        name, power, cost, build, steel, oil, desc = item
+        if i == 0 or name in researched:
+            lines.append(f"✅ *{name}* — قدرت {power}")
+        else:
+            # چک کن قبلی‌ها تحقیق شدن
+            ok, need = research_chain_ok(uid, cat, i, tree, researched)
+            if not ok:
+                lines.append(f"🔒 *{name}* (ابتدا {need} را تحقیق کن)")
+            else:
+                lines.append(
+                    f"🔓 *{name}*\n"
+                    f"   📝 {desc}\n"
+                    f"   💪 {power} | 🔬 {cost}💰+{build}نوبت | ⚙️{steel} 🛢️{oil}"
+                )
+    lines.append("\n👇 روی مدل بزن")
+    await update.message.reply_text("\n".join(lines),
+        reply_markup=kb_models(st["country"], cat, uid), parse_mode="Markdown")
+
+# ─── ۴. امور کشور گسترده ───
+def kb_internal_for(uid):
+    st = get_state(uid)
+    rows = []
+    if st and st.get("protest"):
+        rows.append([KeyboardButton("🚔 سرکوب اعتراض")])
+    rows.append([KeyboardButton("👥 امور مردم")])
+    rows.append([KeyboardButton("🏛️ امور حکومت")])
+    rows.append([KeyboardButton("🏢 دولت")])
+    rows.append([KeyboardButton("📊 مشکلات")])
+    rows.append([KeyboardButton("📈 تورم")])
+    rows.append([KeyboardButton("🕵️ نظارت بر مردم")])
+    if st and st["country"] == "germany" and st.get("gov") == "nazism":
+        rows.append([KeyboardButton("⚫ هولوکاست")])
+    rows.append([KeyboardButton("🔙 منو")])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+async def on_internal(update, ctx):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    last = int(gget(f"last_int_{uid}", "0") or 0)
+    turns_since = st["turn"] - last if last else 0
+    t = (f"🏛️ *امور کشور*\n"
+         f"😊 رضایت: {int(st['happiness'])}%\n"
+         f"🕵️ نظارت: {st.get('surveillance',20)}%\n")
+    if st.get("protest"):
+        t += f"🔥 اعتراض فعال ({st.get('protest_t',0)} نوبت)"
+    if turns_since >= 15:
+        t += f"\n\n⚠️ *{turns_since} نوبت بی‌اقدام* — رضایت افتاده"
+    t += "\n\n👇 بخش مورد نظر:"
+    await update.message.reply_text(t,
+        reply_markup=kb_internal_for(uid), parse_mode="Markdown")
+
+async def on_int_action(update, ctx, cost, sat_gain, title, desc):
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st: return
+    if not pay(uid, money=cost):
+        await update.message.reply_text(f"❌ نیاز: {cost}💰")
+        return
+    sset(uid, happiness=min(100, st["happiness"]+sat_gain))
+    gset(f"last_int_{uid}", str(st["turn"]))
+    await update.message.reply_text(
+        f"{title}\n\n{desc}\n\n😊 رضایت: +{sat_gain}",
+        reply_markup=kb_main())
+
+async def on_people_affairs(update, ctx):
+    uid = update.effective_user.id
+    await update.message.reply_text(
+        "👥 *امور مردم*\n\nچه خدمتی به مردم می‌دی؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("🏥 بیمارستان جدید"),KeyboardButton("📚 مدرسه جدید")],
+            [KeyboardButton("💧 سیستم آب"),KeyboardButton("🏠 مسکن")],
+            [KeyboardButton("🍞 سهمیه غذا")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
+async def on_gov_affairs(update, ctx):
+    await update.message.reply_text(
+        "🏛️ *امور حکومت*\n\nچه اصلاحی انجام می‌دی؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("📜 اصلاحات مدنی"),KeyboardButton("⚖️ قضایی")],
+            [KeyboardButton("💰 مبارزه با فساد"),KeyboardButton("📻 تبلیغات")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
+async def on_state_affairs(update, ctx):
+    await update.message.reply_text(
+        "🏢 *دولت*\n\nچه کاری برای دستگاه دولتی؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("💼 برنامه اشتغال"),KeyboardButton("🏗️ زیرساخت")],
+            [KeyboardButton("📋 خدمت اجباری")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
+async def on_problems(update, ctx):
+    await update.message.reply_text(
+        "📊 *مشکلات*\n\nکدوم مشکل رو حل کنی؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("🚨 مبارزه با جرم"),KeyboardButton("🏭 بیکاری")],
+            [KeyboardButton("🚧 اعتراضات")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
+async def on_inflation(update, ctx):
+    await update.message.reply_text(
+        "📈 *تورم*\n\nسیاست اقتصادی؟",
+        reply_markup=ReplyKeyboardMarkup([
+            [KeyboardButton("💰 کاهش مالیات"),KeyboardButton("📉 کنترل قیمت‌ها")],
+            [KeyboardButton("🔙 منو")],
+        ], resize_keyboard=True), parse_mode="Markdown")
+
+# ─── ۵. بمب تزار = فتح کامل ───
+async def apply_item_effect(ctx, uid, item_key, target_uid=None):
+    st = get_state(uid)
+    if not st: return "❌ خطا"
+    c = COUNTRIES[st["country"]]
+    result = "✅"
+    # آیتم‌های بدون هدف
+    if item_key in ("carpet_bomb", "war_speech", "war_storm", "revive",
+                    "god_shield", "invisible", "double_attack", "lock_on",
+                    "revenge", "seize_power"):
+        if item_key == "carpet_bomb":
+            for p in all_players():
+                if p["uid"] == uid: continue
+                ps = get_state(p["uid"])
+                if ps: sset(p["uid"], happiness=max(0, ps["happiness"]-10))
+            result = "🔥 بمباران قالی"
+        elif item_key == "war_speech":
+            for p in all_players():
+                if p["uid"] == uid: continue
+                ps = get_state(p["uid"])
+                if ps: sset(p["uid"], money=max(0, ps["money"]*0.5))
+            result = "📢 نطق جنگی"
+        elif item_key == "war_storm":
+            conn = db()
+            conn.execute("DELETE FROM wars WHERE def_uid=?", (uid,))
+            conn.commit(); conn.close()
+            sset(uid, war=0)
+            result = "🌪 طوفان جنگی"
+        elif item_key == "revive":
+            add_effect(uid, "revive", 999); result = "🔄 برگشت فوری"
+        elif item_key == "god_shield":
+            add_effect(uid, "shield", 60); result = "🛡 سپر جان"
+        elif item_key == "invisible":
+            add_effect(uid, "invisible", 30); result = "👻 نامرئی"
+        elif item_key == "double_attack":
+            add_effect(uid, "double_attack", 10); result = "⚡ دوبرابر حمله"
+        elif item_key == "lock_on":
+            add_effect(uid, "lock_on", 10); result = "🎯 قفل"
+        elif item_key == "revenge":
+            add_effect(uid, "revenge", 999); result = "💀 انتقام"
+        elif item_key == "seize_power":
+            add_effect(uid, "commander", 10); result = "👑 غصب قدرت"
+        add_news(st["turn"], "item", result)
+        return result
+    # بمب تزار = فتح کامل
+    if item_key == "tsar_bomb" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            # انتقال ۵۰٪ (چون بمب زدیم)
+            sset(uid,
+                 money=st["money"] + int(ts["money"]*0.5),
+                 steel=st["steel"] + int(ts["steel"]*0.5),
+                 oil=st["oil"] + int(ts["oil"]*0.5),
+                 food=st["food"] + int(ts["food"]*0.5),
+                 coal=st["coal"] + int(ts["coal"]*0.5),
+                 water=st["water"] + int(ts["water"]*0.5),
+                 manpower=st["manpower"] + int(ts["manpower"]*0.5),
+                 soldiers=st["soldiers"] + int(ts["soldiers"]*0.5),
+                 happiness=int((st["happiness"]+ts["happiness"])/2))
+            # انتقال تحقیقات
+            conn = db()
+            rows = conn.execute("SELECT category,model FROM research WHERE user_id=?", (target_uid,)).fetchall()
+            for r in rows:
+                conn.execute("INSERT OR IGNORE INTO research(user_id,category,model) VALUES(?,?,?)",
+                    (uid, r["category"], r["model"]))
+            conn.commit(); conn.close()
+            # کشتن
+            sset(target_uid, dead=1)
+            msg = (f"💣 *بمب تزار*\n\n"
+                   f"بمب تزار توسط {c['n']} بر فراز پایتخت "
+                   f"{COUNTRIES[ts['country']]['n']} منفجر شد. شهر کاملاً "
+                   f"نابود شد و کشور فتح گردید.\n\n"
+                   f"📊 {c['n']} ۵۰٪ دارایی‌ها + تحقیقات را به دست آورد.")
+            add_news(st["turn"], "conquest", msg)
+            try: await ctx.bot.send_message(NEWS_CH, msg, parse_mode="Markdown")
+            except: pass
+            result = f"💣 بمب تزار — {COUNTRIES[ts['country']]['n']} فتح شد."
+    elif item_key == "force_exile" and target_uid:
+        ts = get_state(target_uid)
+        if ts: sset(target_uid, dead=1); result = "🗳 اخراج اجباری"
+    elif item_key == "censor" and target_uid:
+        add_effect(target_uid, "censored", 3); result = "🤐 سانسور"
+    elif item_key == "expose" and target_uid:
+        result = f"🕵️ افشاگری: {render_stats(target_uid)}"
+    elif item_key == "force_ally" and target_uid:
+        aid = get_user_alliance(uid)
+        if not aid:
+            conn = db()
+            cur = conn.execute("INSERT INTO alliances(name,founder) VALUES(?,?)", (f"اتحاد {c['n']}", uid))
+            aid = cur.lastrowid
+            conn.execute("INSERT INTO allies(aid,user_id) VALUES(?,?)", (aid, uid))
+            conn.commit(); conn.close()
+        conn = db()
+        conn.execute("INSERT OR IGNORE INTO allies(aid,user_id) VALUES(?,?)", (aid, target_uid))
+        conn.commit(); conn.close()
+        result = "🤝 اتحاد اجباری"
+    elif item_key == "plunder" and target_uid:
+        ts = get_state(target_uid)
+        if ts:
+            half = ts["money"]//2
+            sset(target_uid, money=ts["money"]-half)
+            sset(uid, money=st["money"]+half)
+            result = f"💰 غارت {fmt(half)}"
+    elif item_key == "nuke_item" and target_uid:
+        result = use_atomic(uid, target_uid)
+    elif item_key == "bio_weapon" and target_uid:
+        add_effect(target_uid, "no_attack", 5)
+        result = "☠️ بیولوژیک"
+    elif item_key == "ballistic" and target_uid:
+        ts = get_state(target_uid)
+        if ts: sset(target_uid, dead=1); result = "🚀 بالستیک"
+    add_news(st["turn"], "item", result)
+    return result
+
+# ─── ۶. فیلتر کانال: هیچ اطلاعات شخصی ───
+async def post_to_channel(ctx, text):
+    """فقط اخبار عمومی و بدون اطلاعات شخصی"""
+    # لیست کلمات ممنوعه
+    forbidden = ["پول تو", "سرباز تو", "ارتش تو", "منابعت", "جاسوس تو"]
+    for w in forbidden:
+        if w in text:
+            return
+    try:
+        await ctx.bot.send_message(NEWS_CH, text, parse_mode="Markdown")
+    except Exception as e:
+        log.warning(f"news: {e}")
+
+# ─── ۷. hook روتر ───
+_old_on_text7 = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text7(update, ctx)
+    text = update.message.text.strip()
+    uid = update.effective_user.id
+    # کیبورد اصلی جدید
+    if text == "💵 مالیات":
+        await on_tax(update, ctx); return
+    # اقتصاد حذف شد
+    if text == "💰 اقتصاد":
+        await update.message.reply_text("ℹ️ این بخش حذف شد. از 💵 مالیات استفاده کن.")
+        return
+    # امور کشور
+    if text == "🏛️ امور کشور":
+        await on_internal(update, ctx); return
+    if text == "👥 امور مردم":
+        await on_people_affairs(update, ctx); return
+    if text == "🏛️ امور حکومت":
+        await on_gov_affairs(update, ctx); return
+    if text == "🏢 دولت":
+        await on_state_affairs(update, ctx); return
+    if text == "📊 مشکلات":
+        await on_problems(update, ctx); return
+    if text == "📈 تورم":
+        await on_inflation(update, ctx); return
+    # اقدامات
+    acts = {
+        "🏥 بیمارستان جدید": (500, 5, "🏥 بیمارستان جدید", "بیمارستان مدرن افتتاح شد."),
+        "📚 مدرسه جدید": (400, 4, "📚 مدرسه جدید", "مدارس جدید ساخته شدند."),
+        "💧 سیستم آب": (600, 6, "💧 سیستم آب", "آب سالم به همه رسید."),
+        "🏠 مسکن": (700, 7, "🏠 مسکن", "پروژه مسکن عمومی آغاز شد."),
+        "🍞 سهمیه غذا": (400, 5, "🍞 سهمیه غذا", "سهمیه غذایی توزیع شد."),
+        "📜 اصلاحات مدنی": (600, 6, "📜 اصلاحات مدنی", "قوانین مدنی اصلاح شد."),
+        "⚖️ قضایی": (500, 5, "⚖️ قضایی", "سیستم قضایی تقویت شد."),
+        "💰 مبارزه با فساد": (800, 8, "💰 مبارزه با فساد", "فساد اداری سرکوب شد."),
+        "📻 تبلیغات": (500, 5, "📻 تبلیغات", "رسانه‌ها در خدمت دولت."),
+        "💼 برنامه اشتغال": (900, 9, "💼 برنامه اشتغال", "فرصت‌های شغلی جدید."),
+        "🏗️ زیرساخت": (800, 7, "🏗️ زیرساخت", "پروژه‌های زیربنایی آغاز شد."),
+        "🚨 مبارزه با جرم": (700, 6, "🚨 مبارزه با جرم", "نیروهای پلیس تقویت شدند."),
+        "🏭 بیکاری": (900, 8, "🏭 بیکاری", "کارخانه‌های جدید افتتاح."),
+        "🚧 اعتراضات": (500, 5, "🚧 اعتراضات", "کانال‌های گفتگو با معترضان."),
+        "💰 کاهش مالیات": (0, 3, "💰 کاهش مالیات", "مالیات کمی کاهش یافت."),
+        "📉 کنترل قیمت‌ها": (600, 6, "📉 کنترل قیمت‌ها", "قیمت‌ها کنترل شد."),
+    }
+    if text in acts:
+        cost, sat, title, desc = acts[text]
+        await on_int_action(update, ctx, cost, sat, title, desc)
+        return
+    return await _old_on_text7(update, ctx)
+
+# ─── ۸. neglect در نوبت ───
+_old_pt8 = process_turn
+
+def process_turn(uid):
+    res = _old_pt8(uid)
+    if not res: return res
+    st = get_state(uid)
+    if not st: return res
+    last = int(gget(f"last_int_{uid}", "0") or 0)
+    if last == 0:
+        gset(f"last_int_{uid}", str(st["turn"]))
+    elif st["turn"] - last >= 15:
+        sset(uid, happiness=max(0, st["happiness"]-3))
+    return res
+
+# ─── ۹. مقدار مالیات تو process_turn (۱-۱۰۰) ───
+_old_calc_hap9 = calc_hap_delta
+
+def calc_hap_delta(uid, st):
+    d = 0
+    tax = st.get("tax", 20)
+    # مالیات ۱-۱۰۰
+    if tax >= 80: d -= 15
+    elif tax >= 60: d -= 10
+    elif tax >= 40: d -= 5
+    elif tax >= 25: d -= 2
+    elif tax <= 10: d += 3
+    f = st.get("food", 0)
+    if f < 100: d -= 5
+    elif f < 300: d -= 2
+    elif f > 3000: d += 2
+    w = st.get("water", 0)
+    if w < 50: d -= 4
+    if st.get("steel", 0) < 50: d -= 2
+    if st.get("oil", 0) <= 0: d -= 3
+    if st.get("coal", 0) < 50: d -= 2
+    if st.get("war"): d -= 3
+    if st.get("protest"): d -= 4
+    if st.get("suppress_cd", 0) > 0: d -= 2
+    d -= st.get("surveillance", 20) // 15
+    d += GOVS.get(st.get("gov"), ("",0))[1]
+    facs = len(get_fact(uid))
+    if facs < 3: d -= 2
+    elif facs > 6: d += 1
+    for pk in get_done_proj(uid):
+        p = PROJECTS.get(pk, {})
+        if p.get("eff") == "happiness": d += p.get("v",0)//3
+    if "conscription" in get_done_proj(uid): d -= 3
+    if st.get("money", 0) <= 100: d -= 3
+    if is_vip(uid) and d < 0: d = int(d/2)
+    return d
+
+# ─── ۱۰. چک زنجیره تحقیق ───
+_old_on_text10 = on_text
+
+async def on_text(update, ctx):
+    if not update.message or not update.message.text:
+        return await _old_on_text10(update, ctx)
+    text = update.message.text.strip()
+    uid = update.effective_user.id
+    st = get_state(uid)
+    if not st:
+        return await _old_on_text10(update, ctx)
+    screen = ctx.user_data.get("screen", "menu")
+    # تحقیق زنجیره‌ای
+    if screen.startswith("research_"):
+        cat = screen.split("_", 1)[1]
+        tree = get_tree(st["country"], cat)
+        researched = get_res(uid, cat)
+        for i, item in enumerate(tree):
+            if len(item) < 7: continue
+            name, power, cost, build, steel, oil, desc = item
+            if name == text:
+                if i == 0:
+                    await update.message.reply_text("این مدل از اول باز است.")
+                    return
+                if name in researched:
+                    await update.message.reply_text("قبلاً تحقیق شده.")
+                    return
+                # چک زنجیره
+                ok, need = research_chain_ok(uid, cat, i, tree, researched)
+                if not ok:
+                    await update.message.reply_text(
+                        f"🔒 ابتدا باید *{need}* را تحقیق کنی.",
+                        parse_mode="Markdown")
+                    return
+                if not pay(uid, money=cost):
+                    await update.message.reply_text(f"❌ نیاز: {cost}💰")
+                    return
+                conn = db()
+                conn.execute("INSERT INTO pq(user_id,category,model,qty,turns) VALUES(?,?,?,?,?)",
+                    (uid, "research_pending", f"{cat}:{name}", 1, build))
+                conn.commit(); conn.close()
+                await update.message.reply_text(
+                    f"🔬 *{name}* در صف تحقیق!\n⏱️ {build} نوبت\n💰 {cost}",
+                    reply_markup=kb_main(), parse_mode="Markdown")
+                return
+    return await _old_on_text10(update, ctx)
+
 if __name__ == "__main__":
     main()
