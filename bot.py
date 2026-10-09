@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 
 # توکن ربات را اینجا قرار بده.
 # اگر مخزن GitHub عمومی است، توکن واقعی را داخل آن منتشر نکن.
-BOT_TOKEN = "توکن_ربات_بله_را_اینجا_قرار_بده"
+BOT_TOKEN = "152004939:-yVJrAHZWHVeopSTZUUltAAIkdjE3f7qNm8"
 
 ADMIN_IDS = {
     1618371215,
