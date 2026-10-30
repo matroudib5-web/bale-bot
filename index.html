@@ -3,66 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLACK WEB | دارک وب، احتمالا فیک</title>
+    <title>BLACK WEB</title>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- هدر (نوار بالای سایت) -->
     <header>
         <div class="logo-container">
-            <!-- فعلا لوگو نداریم، فقط فضای خالی -->
+            <!-- فضای خالی برای لوگو -->
         </div>
     </header>
 
-    <!-- محتوای اصلی (کارت‌ها) -->
     <main class="grid">
         
-        <!-- ردیف اول -->
         <div class="card">
-            <div class="img-box"><img src="https://images.unsplash.com/photo-1595590424283-b8f17842773f" alt="Assassin"></div>
-            <p>Discreet termination services.</p>
-            <button class="btn" data-action="assassin">REQUEST CONTRACT</button>
+            <img src="https://images.unsplash.com/photo-1595590424283-b8f17842773f" alt="Assassin">
+            <p data-en="Discreet termination services." data-fa="خدمات حذف محرمانه و تضمینی.">Discreet termination services.</p>
+            <button class="btn" data-en="REQUEST CONTRACT" data-fa="درخواست قرارداد">REQUEST CONTRACT</button>
         </div>
+        
         <div class="card">
-            <div class="img-box"><img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae" alt="Powder"></div>
-            <p>Medical grade synthetic compounds.</p>
-            <button class="btn" data-action="drugs">ORDER SUPPLY</button>
-        </div>
-
-        <!-- ردیف دوم -->
-        <div class="card">
-            <div class="img-box"><img src="https://images.unsplash.com/photo-1551028719-00167b16eac5" alt="Human Leather"></div>
-            <p>Premium human leather goods.</p>
-            <button class="btn" data-action="skin">VIEW COLLECTION</button>
-        </div>
-        <div class="card">
-            <div class="img-box"><img src="https://images.unsplash.com/photo-1517430816045-df4b7de11d1d" alt="Organs"></div>
-            <p>Fresh biological components.</p>
-            <button class="btn" data-action="organs">SECURE ORGAN</button>
+            <img src="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae" alt="Powder">
+            <p data-en="Medical grade synthetic compounds." data-fa="ترکیبات مصنوعی با خلوص آزمایشگاهی.">Medical grade synthetic compounds.</p>
+            <button class="btn" data-en="ORDER SUPPLY" data-fa="سفارش محموله">ORDER SUPPLY</button>
         </div>
 
-        <!-- ردیف سوم -->
         <div class="card">
-            <div class="img-box"><img src="https://images.unsplash.com/photo-1544698310-74ea9d188c1b" alt="Passport"></div>
-            <p>A new life in the land of the free.</p>
-            <button class="btn" data-action="citizenship">BUY CITIZENSHIP</button>
+            <img src="https://images.unsplash.com/photo-1551028719-00167b16eac5" alt="Human Leather">
+            <p data-en="Premium human leather goods." data-fa="محصولات چرمی ممتاز از پوست انسان.">Premium human leather goods.</p>
+            <button class="btn" data-en="VIEW COLLECTION" data-fa="مشاهده مجموعه">VIEW COLLECTION</button>
         </div>
+        
         <div class="card">
-            <div class="img-box"><img src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c" alt="Identity"></div>
-            <p>Complete personal dossiers.</p>
-            <button class="btn" data-action="identity">ACQUIRE DOSSIER</button>
+            <img src="https://images.unsplash.com/photo-1517430816045-df4b7de11d1d" alt="Organs">
+            <p data-en="Fresh biological components." data-fa="اجزای بیولوژیکی تازه.">Fresh biological components.</p>
+            <button class="btn" data-en="SECURE ORGAN" data-fa="تأمین عضو">SECURE ORGAN</button>
         </div>
 
-        <!-- ردیف چهارم -->
         <div class="card">
-            <div class="img-box"><img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5" alt="Hacking"></div>
-            <p>Access to unrecoverable data.</p>
-            <button class="btn" data-action="hack">INITIATE BREACH</button>
+            <img src="https://images.unsplash.com/photo-1544698310-74ea9d188c1b" alt="Passport">
+            <p data-en="A new life in the land of the free." data-fa="زندگی جدید در سرزمین آزادی.">A new life in the land of the free.</p>
+            <button class="btn" data-en="BUY CITIZENSHIP" data-fa="خرید شهروندی">BUY CITIZENSHIP</button>
+        </div>
+        
+        <div class="card">
+            <img src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c" alt="Identity">
+            <p data-en="Complete personal dossiers." data-fa="پرونده‌های کامل شخصی.">Complete personal dossiers.</p>
+            <button class="btn" data-en="ACQUIRE DOSSIER" data-fa="دریافت پرونده">ACQUIRE DOSSIER</button>
+        </div>
+
+        <div class="card">
+            <img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5" alt="Hacking">
+            <p data-en="Access to unrecoverable data." data-fa="دسترسی به داده‌های غیرقابل بازیابی.">Access to unrecoverable data.</p>
+            <button class="btn" data-en="INITIATE BREACH" data-fa="شروع نفوذ">INITIATE BREACH</button>
         </div>
 
     </main>
+
+    <!-- دکمه تغییر زبان پایین صفحه -->
+    <div class="lang-toggle-container">
+        <span id="lang-toggle">FA</span>
+    </div>
 
     <script src="script.js"></script>
 </body>
