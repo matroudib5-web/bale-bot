@@ -1,38 +1,40 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const buttons = document.querySelectorAll('.btn');
+    const langToggle = document.getElementById("lang-toggle");
+    const textElements = document.querySelectorAll("[data-en]");
+    let currentLang = 'en';
 
+    // عملکرد دکمه‌های خرید
+    const buttons = document.querySelectorAll('.btn');
     buttons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const action = e.target.getAttribute('data-action');
-            
-            // اینجا بعدا متن های هرکدوم رو مینویسی
-            let message = "";
-            switch(action) {
-                case "assassin":
-                    message = "Contract request sent. We will find you.";
-                    break;
-                case "drugs":
-                    message = "Supply ordered. Delivery in 3 days.";
-                    break;
-                case "skin":
-                    message = "Redirecting to the leather collection...";
-                    break;
-                case "organs":
-                    message = "Organ reserved. Awaiting extraction.";
-                    break;
-                case "citizenship":
-                    message = "US citizenship purchased. Welcome.";
-                    break;
-                case "identity":
-                    message = "Dossier acquired. They are watching you.";
-                    break;
-                case "hack":
-                    message = "Initiating breach... (Just kidding).";
-                    break;
-                default:
-                    message = "Action completed.";
+        btn.addEventListener('click', () => {
+            if (currentLang === 'en') {
+                alert("Action pending. Wait for my order.");
+            } else {
+                alert("عملیات در انتظار. منتظر دستور من باش.");
             }
-            alert(message);
         });
+    });
+
+    // عملکرد تغییر زبان
+    langToggle.addEventListener("click", () => {
+        if (currentLang === 'en') {
+            currentLang = 'fa';
+            langToggle.innerText = "EN";
+            textElements.forEach(el => {
+                el.innerText = el.getAttribute("data-fa");
+                el.classList.add("fa-text");
+            });
+            // تغییر فونت کل صفحه به فارسی
+            document.body.style.fontFamily = "Tahoma, sans-serif"; 
+        } else {
+            currentLang = 'en';
+            langToggle.innerText = "FA";
+            textElements.forEach(el => {
+                el.innerText = el.getAttribute("data-en");
+                el.classList.remove("fa-text");
+            });
+            // برگردوندن فونت به هکری
+            document.body.style.fontFamily = "'Share Tech Mono', monospace";
+        }
     });
 });
