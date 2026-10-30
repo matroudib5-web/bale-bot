@@ -6,89 +6,105 @@
 }
 
 body {
-    background-color: #000000; /* مشکی تیره */
+    background-color: #000000;
     color: #ffffff;
     display: flex;
     flex-direction: column;
     align-items: center;
     min-height: 100vh;
+    padding-bottom: 60px; /* برای اینکه دکمه پایین نیفته رو محتوا */
 }
 
-/* هدر کشیده */
 header {
     width: 100%;
-    background-color: #111111; /* مشکی یکمی روشن تر */
-    padding: 20px 0;
+    background-color: #111111;
+    height: 80px; 
     display: flex;
     justify-content: center;
+    align-items: center;
     margin-bottom: 40px;
 }
 
-.logo-container {
-    height: 60px;
-    /* اینجا بعدا لوگو قرار میگیره */
-}
-
-/* گرید اصلی */
 .grid {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* دو ستون */
-    gap: 30px; /* فاصله بین کارت ها */
+    grid-template-columns: 1fr 1fr;
+    gap: 30px; 
     width: 90%;
-    max-width: 1000px;
+    max-width: 1200px;
     margin-bottom: 50px;
 }
 
-/* مستطیل های محصولات (کارت ها) */
 .card {
-    background-color: #111111; /* مشکی یکمی روشن تر */
-    padding: 15px;
+    background-color: #111111;
+    padding: 20px;
     display: flex;
     flex-direction: column;
 }
 
-/* عکس بالای کارت */
-.img-box {
+.card img {
     width: 100%;
-    height: 200px;
-    margin-bottom: 15px;
-    overflow: hidden;
-}
-
-.img-box img {
-    width: 100%;
-    height: 100%;
+    height: 250px;
     object-fit: cover;
-    filter: grayscale(100%) contrast(120%); /* برای اینکه عکسا حس تیره و ترسناک بدن */
+    margin-bottom: 20px;
 }
 
-/* متن داخل کارت */
 .card p {
     color: #ffffff;
-    font-size: 14px;
-    margin-bottom: 15px;
-    line-height: 1.4;
+    font-size: 16px;
+    margin-bottom: 20px;
+    line-height: 1.5;
+    font-family: sans-serif;
+    direction: ltr; /* برای متن انگلیسی */
 }
 
-/* دکمه ها */
+/* وقتی زبان فارسی میشه، این کلاس اضافه میشه */
+.card p.fa-text {
+    direction: rtl;
+    font-family: Tahoma, sans-serif; /* فونت مناسب فارسی */
+}
+
 .btn {
-    background-color: #1a4a25; /* سبز تیره مات */
+    background-color: #2e8b57;
     color: #ffffff;
-    border: 1px solid #ffffff; /* حاشیه سفید */
-    border-radius: 0; /* گوشه های تیز */
-    padding: 10px;
-    font-size: 14px;
+    border: 2px solid #ffffff;
+    border-radius: 0;
+    padding: 15px;
+    font-size: 16px;
     font-family: 'Share Tech Mono', monospace;
     cursor: pointer;
     transition: background 0.3s;
-    margin-top: auto; /* دکمه همیشه پایین کارت میمونه */
+    margin-top: auto; 
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn.fa-text {
+    font-family: Tahoma, sans-serif;
+    text-transform: none;
+    letter-spacing: 0;
 }
 
 .btn:hover {
-    background-color: #2e6b39;
+    background-color: #3cb371;
 }
 
-/* برای موبایل: یک ستونه بشه */
+/* استایل دکمه تغییر زبان */
+.lang-toggle-container {
+    position: fixed;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #555;
+    cursor: pointer;
+    transition: color 0.3s;
+    user-select: none;
+}
+
+.lang-toggle-container:hover {
+    color: #fff;
+}
+
 @media (max-width: 768px) {
     .grid {
         grid-template-columns: 1fr;
