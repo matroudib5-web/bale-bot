@@ -1,2 +1,1 @@
-baleio
-aiohttp
+python-telegram-bo
